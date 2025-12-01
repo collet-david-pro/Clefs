@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - Gestionnaire de Clés</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+    {% include 'navbar.html' %}
+
+    <main class="container" style="padding-top: 5rem;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>{{ page_title }}</h1>
+            <a href="/key-plan/download" class="btn btn-primary" target="_blank">Télécharger en PDF</a>
+        </div>
+
+        <!-- Tab Navigation -->
+        <ul class="nav nav-tabs" id="keyPlanTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="by-key-tab" data-bs-toggle="tab" data-bs-target="#by-key" type="button" role="tab" aria-controls="by-key" aria-selected="true">
+                    Vue par Clé
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="by-location-tab" data-bs-toggle="tab" data-bs-target="#by-location" type="button" role="tab" aria-controls="by-location" aria-selected="false">
+                    Vue par Point d'Accès
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="keyPlanTabContent">
+            
+            <!-- View by Key -->
+            <div class="tab-pane fade show active" id="by-key" role="tabpanel" aria-labelledby="by-key-tab">
+                <div class="card">
+                    <div class="card-header">Liste des clés et des points d'accès qu'elles ouvrent</div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Clé</th>
+                                    <th>Points d'Accès Autorisés</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key in keys_data %}
+                                <tr>
+                                    <td class="align-middle"><strong>{{ key.number }}</strong></td>
+                                    <td>
+                                        {% for location in key.locations %}
+                                            <span class="badge bg-primary fw-normal me-1">{{ location.building.name }} &raquo; {{ location.name }}</span>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View by Location -->
+            <div class="tab-pane fade" id="by-location" role="tabpanel" aria-labelledby="by-location-tab">
+                {% for building in buildings_data %}
+                <div class="card mb-3">
+                    <div class="card-header">{{ building.name }}</div>
+                    <div class="card-body">
+                         <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Point d'Accès</th>
+                                    <th>Clés Autorisées</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for location in building.locations %}
+                                <tr>
+                                    <td class="align-middle">
+                                        <strong>{{ location.name }}</strong><br>
+                                        <small class="text-muted">{{ location.type }}</small>
+                                    </td>
+                                    <td>
+                                        {% for key in location.keys %}
+                                            <span class="badge bg-secondary fw-normal me-1">{{ key.number }}</span>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
