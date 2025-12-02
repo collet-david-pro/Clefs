@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
@@ -17,6 +17,7 @@ from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph
+from types import SimpleNamespace
 import uvicorn
 import webview
 
@@ -300,11 +301,8 @@ async def get_loan_receipt(loan_id: int, db: Session = Depends(get_db)):
     
     filename = f"bon_de_sortie_cle_{loan.key.number}_{loan.loan_date.strftime('%Y%m%d')}.pdf"
     
-    return FileResponse(
-        path=pdf_buffer,
-        media_type='application/pdf',
-        filename=filename
-    )
+    # Return the generated PDF as a streaming response (BytesIO)
+    return StreamingResponse(pdf_buffer, media_type='application/pdf', headers={"Content-Disposition": f"attachment; filename=\"{filename}\""})
 
 @app.get("/return/{key_id}", response_class=RedirectResponse)
 async def return_key(key_id: int, db: Session = Depends(get_db)):
@@ -314,6 +312,136 @@ async def return_key(key_id: int, db: Session = Depends(get_db)):
     active_loan = db.query(Loan).filter(Loan.key_id == key_id, Loan.return_date == None).first()
     if active_loan:
         active_loan.return_date = datetime.datetime.utcnow()
+        db.commit()
+    return RedirectResponse(url="/", status_code=303)
+
+
+# --- Extra pages/routes to match templates (placeholders to avoid 404s) ---
+@app.get("/config", response_class=HTMLResponse)
+async def config_page(request: Request):
+    return templates.TemplateResponse("config.html", {"request": request, "page_title": "Configuration"})
+
+
+@app.get("/config/buildings", response_class=HTMLResponse)
+async def config_buildings(request: Request):
+    # Minimal implementation: no DB model for Building yet -> show empty list
+    buildings = []
+    return templates.TemplateResponse("buildings.html", {"request": request, "buildings": buildings, "page_title": "Gérer les Bâtiments"})
+
+
+@app.post("/config/buildings/add", response_class=RedirectResponse)
+async def add_building(request: Request, building_name: str = Form(...)):
+    # Placeholder behaviour: do nothing persistent yet
+    return RedirectResponse(url="/config/buildings", status_code=303)
+
+
+@app.get("/config/buildings/delete/{building_id}", response_class=RedirectResponse)
+async def delete_building(building_id: int):
+    # Placeholder: no-op
+    return RedirectResponse(url="/config/buildings", status_code=303)
+
+
+@app.get("/config/locations", response_class=HTMLResponse)
+async def config_locations(request: Request, db: Session = Depends(get_db)):
+    # Minimal implementation: return empty lists when Location model not implemented
+    buildings = []
+    locations = []
+    return templates.TemplateResponse("locations.html", {"request": request, "buildings": buildings, "locations": locations, "page_title": "Gérer les Points d'Accès"})
+
+
+@app.post("/config/locations/add", response_class=RedirectResponse)
+async def add_location(request: Request, building_id: int = Form(...), location_name: str = Form(...), location_type: str = Form(...)):
+    # Placeholder: no-op
+    return RedirectResponse(url="/config/locations", status_code=303)
+
+
+@app.get("/config/locations/delete/{location_id}", response_class=RedirectResponse)
+async def delete_location(location_id: int):
+    # Placeholder: no-op
+    return RedirectResponse(url="/config/locations", status_code=303)
+
+
+@app.get("/active-loans", response_class=HTMLResponse)
+async def view_active_loans(request: Request, db: Session = Depends(get_db)):
+    # Build a grouping by borrower with loans
+    active_loans = db.query(Loan).filter(Loan.return_date == None).all()
+    loans_by_borrower = {}
+    for loan in active_loans:
+        name = loan.borrower.name if loan.borrower else "Inconnu"
+        loans_by_borrower.setdefault(name, []).append(loan)
+
+    return templates.TemplateResponse("active_loans.html", {"request": request, "loans_by_borrower": loans_by_borrower, "page_title": "Emprunts en Cours"})
+
+
+@app.get("/loan/summary/borrower/{borrower_id}", response_class=HTMLResponse)
+async def loan_summary_borrower(request: Request, borrower_id: int, db: Session = Depends(get_db)):
+    borrower = db.query(Borrower).filter(Borrower.id == borrower_id).first()
+    if not borrower:
+        return HTMLResponse("Emprunteur non trouvé", status_code=404)
+
+    loans = db.query(Loan).filter(Loan.borrower_id == borrower_id).all()
+    # Reuse the active_loans template: build dict with a single borrower
+    loans_by_borrower = {borrower.name: loans}
+    return templates.TemplateResponse("active_loans.html", {"request": request, "loans_by_borrower": loans_by_borrower, "page_title": f"Emprunts de {borrower.name}"})
+
+
+@app.get("/key-plan", response_class=HTMLResponse)
+async def view_key_plan(request: Request, db: Session = Depends(get_db)):
+    # Build minimal structures for the template — don't assume Location/Building models exist
+    keys = db.query(Key).order_by(Key.number).all()
+    keys_data = []
+    for k in keys:
+        # Provide an empty locations list to avoid template errors
+        keys_data.append({"number": k.number, "locations": []})
+
+    buildings_data = []
+    return templates.TemplateResponse("key_plan.html", {"request": request, "keys_data": keys_data, "buildings_data": buildings_data, "page_title": "Plan de Clés"})
+
+
+@app.get("/key-plan/download", response_class=HTMLResponse)
+async def download_key_plan(request: Request):
+    # Placeholder: just redirect back to the key plan page for now
+    return RedirectResponse(url="/key-plan", status_code=303)
+
+
+@app.get("/manual", response_class=HTMLResponse)
+async def manual_page(request: Request):
+    return templates.TemplateResponse("manual.html", {"request": request, "page_title": "Mode d\'emploi"})
+
+
+@app.get("/keys/edit/{key_id}", response_class=HTMLResponse)
+async def edit_key_form(request: Request, key_id: int, db: Session = Depends(get_db)):
+    key = db.query(Key).filter(Key.id == key_id).first()
+    if not key:
+        return HTMLResponse("Clé non trouvée", status_code=404)
+    return templates.TemplateResponse("edit_key.html", {"request": request, "key": key, "page_title": f"Modifier la Clé {key.number}"})
+
+
+@app.post("/keys/edit/{key_id}", response_class=RedirectResponse)
+async def edit_key_submit(key_id: int, db: Session = Depends(get_db), key_number: str = Form(...), key_description: str = Form(None)):
+    key = db.query(Key).filter(Key.id == key_id).first()
+    if key:
+        key.number = key_number
+        key.description = key_description
+        db.commit()
+    return RedirectResponse(url="/keys", status_code=303)
+
+
+@app.get("/return/select/{key_id}", response_class=HTMLResponse)
+async def select_return(request: Request, key_id: int, db: Session = Depends(get_db)):
+    key = db.query(Key).filter(Key.id == key_id).first()
+    if not key:
+        return HTMLResponse("Clé non trouvée", status_code=404)
+
+    active_loans = db.query(Loan).filter(Loan.key_id == key_id, Loan.return_date == None).all()
+    return templates.TemplateResponse("select_return.html", {"request": request, "key": key, "active_loans": active_loans, "page_title": "Sélectionner le Retour"})
+
+
+@app.get("/return/loan/{loan_id}", response_class=RedirectResponse)
+async def return_loan(loan_id: int, db: Session = Depends(get_db)):
+    loan = db.query(Loan).filter(Loan.id == loan_id).first()
+    if loan and loan.return_date is None:
+        loan.return_date = datetime.datetime.utcnow()
         db.commit()
     return RedirectResponse(url="/", status_code=303)
 

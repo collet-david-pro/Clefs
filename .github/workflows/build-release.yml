@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest]
 
     steps:
       - name: Checkout code
@@ -38,23 +38,19 @@ jobs:
         id: artifact_name
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            echo "NAME=GestionnaireCles-Windows.zip" >> $GITHUB_ENV
-            echo "PATH_TO_ARTIFACT=dist/GestionnaireCles.exe" >> $GITHUB_ENV
-          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            echo "NAME=GestionnaireCles-macOS.zip" >> $GITHUB_ENV
-            echo "PATH_TO_ARTIFACT=dist/GestionnaireCles.app" >> $GITHUB_ENV
-          fi
+          # Préparer le nom et le chemin attendu pour la build Windows
+          echo "NAME=GestionnaireCles-Windows.zip" >> $GITHUB_ENV
+          echo "PATH_TO_ARTIFACT=dist/GestionnaireCles.exe" >> $GITHUB_ENV
 
       - name: Zip artifact
         uses: papeloto/action-zip@v1
         with:
-          files: ${{ env.PATH_TO_ARTIFACT }}
-          dest: ${{ env.NAME }}
+          files: dist/GestionnaireCles.exe
+          dest: GestionnaireCles-Windows.zip
 
       - name: Upload artifact to release
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ env.NAME }}
+          files: GestionnaireCles-Windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
