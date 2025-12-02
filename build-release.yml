@@ -1,0 +1,60 @@
+name: Build and Release Executable
+
+on:
+  push:
+    tags:
+      - 'v*' # Se déclenche quand un tag comme v1.0.0, v1.2.3 est poussé
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build the executable
+        run: pyinstaller build.spec --noconfirm
+
+      - name: Prepare artifact name
+        id: artifact_name
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            echo "NAME=GestionnaireCles-Windows.zip" >> $GITHUB_ENV
+            echo "PATH_TO_ARTIFACT=dist/GestionnaireCles.exe" >> $GITHUB_ENV
+          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+            echo "NAME=GestionnaireCles-macOS.zip" >> $GITHUB_ENV
+            echo "PATH_TO_ARTIFACT=dist/GestionnaireCles.app" >> $GITHUB_ENV
+          else
+            echo "NAME=GestionnaireCles-Linux.zip" >> $GITHUB_ENV
+            echo "PATH_TO_ARTIFACT=dist/GestionnaireCles" >> $GITHUB_ENV
+          fi
+
+      - name: Zip artifact
+        uses: papeloto/action-zip@v1
+        with:
+          files: ${{ env.PATH_TO_ARTIFACT }}
+          dest: ${{ env.NAME }}
+
+      - name: Upload artifact to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ env.NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
