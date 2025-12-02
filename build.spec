@@ -41,13 +41,13 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/icon.icns', # Optionnel: chemin vers une icône pour l'app
+    icon=None, # Optionnel: chemin vers une icône pour l'app
 )
 
 # Pour macOS, créer un .app
 app = BUNDLE(
     exe,
     name='GestionnaireCles.app',
-    icon='assets/icon.icns', # Optionnel: chemin vers l'icône
+    icon=None, # Optionnel: chemin vers l'icône
     bundle_identifier=None,
 )

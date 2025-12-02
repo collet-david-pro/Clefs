@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [windows-latest]
 
     steps:
       - name: Checkout code
@@ -38,9 +38,6 @@ jobs:
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
             echo "NAME=GestionnaireCles-Windows.zip" >> $GITHUB_ENV
             echo "PATH_TO_ARTIFACT=dist/GestionnaireCles.exe" >> $GITHUB_ENV
-          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            echo "NAME=GestionnaireCles-macOS.zip" >> $GITHUB_ENV
-            echo "PATH_TO_ARTIFACT=dist/GestionnaireCles.app" >> $GITHUB_ENV
           fi
 
       - name: Zip artifact
