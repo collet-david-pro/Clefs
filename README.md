@@ -53,24 +53,26 @@ Cette application est conçue pour fonctionner localement sur votre machine (mac
 
 ## Utilisation
 
-### 1. Configuration Initiale
-La première fois, il est recommandé de peupler l'application avec des données de test.
-- Assurez-vous que l'application est arrêtée.
-- **Important :** Si vous avez déjà utilisé l'application, supprimez le fichier `clefs.db` pour garantir la compatibilité avec la dernière version.
-- Lancez le script `./seed.sh` et confirmez avec `o`.
-- Redémarrez l'application avec `./start.sh`.
+### Remplir avec des données de test (Optionnel)
 
-Si vous préférez tout configurer manuellement, allez dans l'onglet **Configuration** et suivez cet ordre :
-1.  Créez vos **Emprunteurs**.
-2.  Créez vos **Bâtiments**.
-3.  Créez vos **Points d'Accès**.
-4.  Créez vos **Clés**.
+> **ATTENTION :** Le script `seed.sh` est uniquement destiné à des fins de **test** ou de **démonstration**. Il **supprime toutes les données existantes** dans la base de données avant de la remplir avec un jeu de données aléatoires. Ne l'utilisez pas si vous avez déjà entré des données réelles que vous souhaitez conserver.
 
-### 2. Gestion des Clés et Emprunteurs
-Toute la gestion des données de base se fait depuis la page **Configuration**.
-- **Pour les Clés :** Cliquez sur "Gérer les Clés" pour ajouter, éditer ou supprimer des types de clés, leur stock, leur lieu de stockage et leurs accès.
-- **Pour les Emprunteurs :** Cliquez sur "Gérer les Emprunteurs" pour ajouter ou supprimer des personnes.
+Pour peupler l'application avec des données de test :
+1.  Assurez-vous que l'application est arrêtée.
+2.  Lancez le script `./seed.sh` et confirmez avec `o`.
+3.  Redémarrez l'application avec `./start.sh`.
 
-### 3. Emprunts et Retours
+### Démarrage et Configuration Manuelle
+
+Pour une utilisation normale, vous pouvez configurer l'application manuellement :
+1.  Lancez l'application avec `./start.sh`.
+2.  Allez dans l'onglet **Configuration**.
+3.  Suivez l'ordre logique : créez d'abord vos **Emprunteurs**, vos **Bâtiments** et vos **Points d'Accès**.
+4.  Enfin, créez vos **Clés** en les liant aux points d'accès.
+
+### Gestion des Données
+Toute la gestion des données de base (Clés, Emprunteurs, Bâtiments, Points d'accès) se fait depuis la page **Configuration**.
+
+### Emprunts et Retours
 - **Pour emprunter :** Depuis le tableau de bord, cliquez sur "Nouvel Emprunt". Le formulaire vous présente une **liste de cases à cocher** pour sélectionner facilement une ou plusieurs clés pour un emprunteur.
 - **Pour retourner :** Depuis le tableau de bord ou la page "Emprunts en Cours", cliquez sur "Retourner". Si plusieurs personnes ont ce type de clé, sélectionnez l'emprunt exact à clôturer.
