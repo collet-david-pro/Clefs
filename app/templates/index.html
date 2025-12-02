@@ -41,9 +41,9 @@
                     </thead>
                     <tbody>
                         {% for key in keys %}
-                        {% set info = loan_info.get(key.id) %}
+                        {% set info = loan_info.get(key.id) if loan_info is defined else None %}
                         {% set loaned = info.count if info else 0 %}
-                        {% set usable = key.quantity_total - key.quantity_reserve %}
+                        {% set usable = (key.quantity_total or 0) - (key.quantity_reserve or 0) %}
                         {% set available = usable - loaned %}
                         <tr>
                             <td><strong>{{ key.number }}</strong></td>
@@ -62,7 +62,7 @@
                             </td>
                             <td>
                                 {% if available > 0 %}
-                                    <a href="/loan/new?key_id={{ key.id }}" class="btn btn-sm btn-primary">Emprunter</a>
+                                    <a href="/loan/new?key_id={{ key.id }}" class="btn btn-sm btn-primary">Emprunter...</a>
                                 {% endif %}
                                 {% if loaned > 0 %}
                                     <a href="/return/select/{{ key.id }}" class="btn btn-sm btn-info">Retourner</a>

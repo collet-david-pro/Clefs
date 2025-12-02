@@ -50,8 +50,8 @@
                                 <tr>
                                     <td class="align-middle"><strong>{{ key.number }}</strong></td>
                                     <td>
-                                        {% for location in key.locations %}
-                                            <span class="badge bg-primary fw-normal me-1">{{ location.building.name }} &raquo; {{ location.name }}</span>
+                                        {% for room in key.rooms %}
+                                            <span class="badge bg-primary fw-normal me-1">{{ room.building.name }} &raquo; {{ room.name }}</span>
                                         {% else %}
                                             <span class="text-muted">N/A</span>
                                         {% endfor %}
@@ -78,14 +78,14 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for location in building.locations %}
+                                {% for room in building.rooms %}
                                 <tr>
                                     <td class="align-middle">
-                                        <strong>{{ location.name }}</strong><br>
-                                        <small class="text-muted">{{ location.type }}</small>
+                                        <strong>{{ room.name }}</strong><br>
+                                        <small class="text-muted">{{ room.type }}</small>
                                     </td>
                                     <td>
-                                        {% for key in location.keys %}
+                                        {% for key in room.keys %}
                                             <span class="badge bg-secondary fw-normal me-1">{{ key.number }}</span>
                                         {% else %}
                                             <span class="text-muted">N/A</span>

@@ -4,4 +4,4 @@ SQLAlchemy
 reportlab
 python-multipart
 jinja2
-pywebview[cef] # Pour Windows, ou [qt] pour Linux/macOS. [cef] est un bon choix multi-plateforme.
+pywebview # Pour Windows, ou [qt] pour Linux/macOS. L'extra 'cef' n'existe plus avec pywebview 2.x/3.x

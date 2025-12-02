@@ -53,11 +53,11 @@
                                 <div class="form-control" style="height: 200px; overflow-y: scroll;">
                                     {% for building in buildings %}
                                         <h6>{{ building.name }}</h6>
-                                        {% for location in building.locations %}
+                                        {% for room in building.rooms %}
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="location_ids" value="{{ location.id }}" id="loc_{{ location.id }}">
-                                            <label class="form-check-label" for="loc_{{ location.id }}">
-                                                {{ location.name }} ({{ location.type }})
+                                            <input class="form-check-input" type="checkbox" name="location_ids" value="{{ room.id }}" id="loc_{{ room.id }}">
+                                            <label class="form-check-label" for="loc_{{ room.id }}">
+                                                {{ room.name }} ({{ room.type }})
                                             </label>
                                         </div>
                                         {% endfor %}
@@ -97,8 +97,8 @@
                                         <strong>{{ key.number }}</strong><br>
                                         <small class="text-muted">{{ key.description }}</small>
                                         <div class="mt-2">
-                                            {% for location in key.locations %}
-                                                <span class="badge bg-secondary fw-normal">{{ location.name }}</span>
+                                            {% for room in key.rooms %}
+                                                <span class="badge bg-secondary fw-normal">{{ room.name }}</span>
                                             {% endfor %}
                                         </div>
                                     </td>

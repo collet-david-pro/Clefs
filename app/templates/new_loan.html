@@ -25,7 +25,7 @@
                             <div class="form-control" style="height: 200px; overflow-y: scroll;">
                                 {% for key in available_keys %}
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="key_ids" value="{{ key.id }}" id="key_{{ key.id }}" {% if key.id == selected_key_id %}checked{% endif %}>
+                                    <input class="form-check-input" type="checkbox" name="key_ids" value="{{ key.id }}" id="key_{{ key.id }}" {% if selected_key_id and key.id == selected_key_id %}checked{% endif %}>
                                     <label class="form-check-label" for="key_{{ key.id }}">
                                         {{ key.number }} - {{ key.description }}
                                     </label>

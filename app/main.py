@@ -2,8 +2,8 @@ from fastapi import FastAPI, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
-from sqlalchemy.orm import sessionmaker, Session, relationship
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Table, func
+from sqlalchemy.orm import sessionmaker, Session, relationship, joinedload
 from sqlalchemy.ext.declarative import declarative_base
 import datetime
 import os
@@ -17,6 +17,7 @@ from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph
+from typing import List, Optional
 from types import SimpleNamespace
 import uvicorn
 import webview
@@ -36,27 +37,39 @@ Base = declarative_base()
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Association table for many-to-many relationship between Key and Room
+key_room_association = Table(
+    'key_room_association', Base.metadata,
+    Column('key_id', Integer, ForeignKey('keys.id'), primary_key=True),
+    Column('room_id', Integer, ForeignKey('rooms.id'), primary_key=True)
+)
+
 # --- Database Models ---
 class Key(Base):
     __tablename__ = "keys"
     id = Column(Integer, primary_key=True, index=True)
     number = Column(String, unique=True, index=True, nullable=False)
     description = Column(String)
+    quantity_total = Column(Integer, default=1)
+    quantity_reserve = Column(Integer, default=0)
+    storage_location = Column(String, nullable=True)
     loans = relationship("Loan", back_populates="key", cascade="all, delete-orphan")
-    rooms = relationship("Room", back_populates="key", cascade="all, delete-orphan")
+    rooms = relationship("Room", secondary=key_room_association, back_populates="keys")
 
 class Room(Base):
     __tablename__ = "rooms"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True, nullable=False)
-    key_id = Column(Integer, ForeignKey("keys.id"))
-    key = relationship("Key", back_populates="rooms")
+    name = Column(String, index=True, nullable=False)
+    type = Column(String) # New column
+    keys = relationship("Key", secondary=key_room_association, back_populates="rooms")
+    building_id = Column(Integer, ForeignKey("buildings.id"))
+    building = relationship("Building", back_populates="rooms")
 
 class Borrower(Base):
     __tablename__ = "borrowers"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True, nullable=False)
-    email = Column(String, unique=True, index=True)
+    name = Column(String, index=True, nullable=False)
+    email = Column(String, index=True)
     loans = relationship("Loan", back_populates="borrower", cascade="all, delete-orphan")
 
 class Loan(Base):
@@ -69,6 +82,12 @@ class Loan(Base):
     
     key = relationship("Key", back_populates="loans")
     borrower = relationship("Borrower", back_populates="loans")
+
+class Building(Base):
+    __tablename__ = "buildings"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    rooms = relationship("Room", back_populates="building", cascade="all, delete-orphan")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -124,6 +143,52 @@ def create_receipt_pdf(loan: Loan):
     buffer.seek(0)
     return buffer
 
+def create_summary_pdf(borrower: Borrower, loans: List[Loan]):
+    """
+    Generates a PDF summarizing all active loans for a borrower.
+    """
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    
+    # Title
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(inch, 10 * inch, "Récapitulatif des Emprunts")
+    
+    # Borrower Details
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(inch, 9.5 * inch, f"Emprunteur : {borrower.name}")
+    
+    # Loan Details Table
+    text_y = 9 * inch
+    
+    # Table Header
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(inch, text_y, "Clé")
+    c.drawString(2.5 * inch, text_y, "Description")
+    c.drawString(5.5 * inch, text_y, "Date d'emprunt")
+    c.line(inch, text_y - 0.1 * inch, 7.5 * inch, text_y - 0.1 * inch)
+    text_y -= 0.3 * inch
+
+    # Table Rows
+    c.setFont("Helvetica", 10)
+    active_loans = [loan for loan in loans if loan.return_date is None]
+    
+    for loan in active_loans:
+        c.drawString(inch, text_y, loan.key.number)
+        
+        p = Paragraph(loan.key.description, styles['Normal'])
+        p_width, p_height = p.wrapOn(c, 2.8 * inch, 0.5 * inch)
+        p.drawOn(c, 2.5 * inch, text_y - (p_height - 10) / 2) # Center vertically
+        
+        c.drawString(5.5 * inch, text_y, loan.loan_date.strftime('%d/%m/%Y à %H:%M'))
+        text_y -= max(0.4 * inch, p_height + 10) # Dynamic row height
+
+    c.showPage()
+    c.save()
+    
+    buffer.seek(0)
+    return buffer
 # --- FastAPI App ---
 app = FastAPI(title="Gestionnaire de Clés")
 
@@ -154,15 +219,33 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
     keys = db.query(Key).order_by(Key.number).all()
     
     # Find active loans (not returned yet)
-    active_loans = db.query(Loan).filter(Loan.return_date == None).all()
+    active_loans = db.query(Loan).options(
+        joinedload(Loan.borrower)
+    ).filter(Loan.return_date == None).all()
+
+    # Build loan_info: for each key ID provide count and borrower names
+    loan_info = {}
+    for loan in active_loans:
+        lid = loan.key_id
+        borrowers = loan_info.get(lid, SimpleNamespace(count=0, borrowers=[])).borrowers
+        # increment count and append borrower
+        if lid not in loan_info:
+            loan_info[lid] = SimpleNamespace(count=0, borrowers=[])
+        loan_info[lid].count += 1
+        if loan.borrower:
+            loan_info[lid].borrowers.append(loan.borrower.name)
     
-    # Create a dictionary to easily find who has which key
-    loan_map = {loan.key_id: loan.borrower.name for loan in active_loans}
-    
+    # Ensure template expects quantity_* attributes — provide sensible defaults
+    for k in keys:
+        if not hasattr(k, 'quantity_total'):
+            setattr(k, 'quantity_total', 1)
+        if not hasattr(k, 'quantity_reserve'):
+            setattr(k, 'quantity_reserve', 0)
+
     return templates.TemplateResponse("index.html", {
         "request": request,
         "keys": keys,
-        "loan_map": loan_map,
+        "loan_info": loan_info,
         "page_title": "Tableau de Bord"
     })
 
@@ -173,23 +256,53 @@ async def manage_keys(request: Request, db: Session = Depends(get_db)):
     Displays the page to manage keys (list and add form).
     """
     keys = db.query(Key).order_by(Key.number).all()
+    # Eagerly load rooms for each building to use in the form
+    buildings = db.query(Building).options(joinedload(Building.rooms).raiseload('*')).order_by(Building.name).all()
+    
+    # Correctly calculate active loan counts
+    active_loans = db.query(Loan.key_id, func.count(Loan.key_id)).filter(Loan.return_date == None).group_by(Loan.key_id).all()
+    loan_counts = {key_id: count for key_id, count in active_loans}
+
     return templates.TemplateResponse("keys.html", {
         "request": request,
-        "keys": keys,
+        "keys": db.query(Key).options(
+            joinedload(Key.rooms).joinedload(Room.building).raiseload('*'),
+            joinedload(Key.rooms).raiseload('*')
+        ).order_by(Key.number).all(),
+        "buildings": buildings, # Pass buildings to the template
+        "loan_counts": loan_counts, # Pass loan_counts to the template
         "page_title": "Gérer les Clés"
     })
+
 
 @app.post("/keys/add", response_class=RedirectResponse)
 async def add_key(
     db: Session = Depends(get_db),
     key_number: str = Form(...),
-    key_description: str = Form(...)
+    key_description: str = Form(...),
+    quantity_total: int = Form(1),
+    quantity_reserve: int = Form(0),
+    storage_location: str = Form(None),
+    location_ids: Optional[List[int]] = Form(None) # Expect a list of room IDs
 ):
     """
     Handles the submission of the form to add a new key.
     """
-    new_key = Key(number=key_number, description=key_description)
+    new_key = Key(
+        number=key_number,
+        description=key_description,
+        quantity_total=quantity_total,
+        quantity_reserve=quantity_reserve,
+        storage_location=storage_location
+    )
     db.add(new_key)
+    db.flush() # Flush to get the new_key.id
+
+    if location_ids:
+        rooms = db.query(Room).filter(Room.id.in_(location_ids)).all()
+        for room in rooms:
+            new_key.rooms.append(room) # Associate rooms with the new key
+
     db.commit()
     return RedirectResponse(url="/keys", status_code=303)
 
@@ -252,10 +365,21 @@ async def new_loan_form(request: Request, key_id: int = None, db: Session = Depe
     """
     Displays the form to create a new loan.
     """
-    # Get keys that are not currently on loan
-    active_loan_key_ids = [loan.key_id for loan in db.query(Loan).filter(Loan.return_date == None).all()]
-    available_keys = db.query(Key).filter(Key.id.notin_(active_loan_key_ids)).order_by(Key.number).all()
-    
+    # Get all keys and count active loans for each
+    all_keys = db.query(Key).order_by(Key.number).all()
+    active_loans = db.query(Loan).filter(Loan.return_date == None).all()
+
+    loan_counts = {}
+    for loan in active_loans:
+        loan_counts[loan.key_id] = loan_counts.get(loan.key_id, 0) + 1
+
+    # A key is available if its total quantity is greater than the number of active loans
+    available_keys = []
+    for key in all_keys:
+        usable_quantity = key.quantity_total - key.quantity_reserve
+        if usable_quantity > loan_counts.get(key.id, 0):
+            available_keys.append(key)
+
     borrowers = db.query(Borrower).order_by(Borrower.name).all()
     
     return templates.TemplateResponse("new_loan.html", {
@@ -269,24 +393,40 @@ async def new_loan_form(request: Request, key_id: int = None, db: Session = Depe
 @app.post("/loan/new", response_class=RedirectResponse)
 async def create_loan(
     db: Session = Depends(get_db),
-    key_id: int = Form(...),
+    key_ids: List[int] = Form(...),
     borrower_id: int = Form(...)
 ):
     """
-    Creates a new loan record and redirects to the PDF receipt.
+    Creates new loan records for each selected key.
     """
-    # Double-check the key is actually available
-    existing_loan = db.query(Loan).filter(Loan.key_id == key_id, Loan.return_date == None).first()
-    if existing_loan:
-        # This should ideally return an error message to the user
-        return RedirectResponse(url="/", status_code=303)
+    # Get current loan counts for all keys
+    active_loans = db.query(Loan.key_id, func.count(Loan.key_id)).filter(Loan.return_date == None).group_by(Loan.key_id).all()
+    loan_counts = {key_id: count for key_id, count in active_loans}
 
-    new_loan_record = Loan(key_id=key_id, borrower_id=borrower_id, loan_date=datetime.datetime.utcnow())
-    db.add(new_loan_record)
+    # Get the total quantity for each selected key
+    keys_to_loan = db.query(Key).filter(Key.id.in_(key_ids)).all()
+    key_quantities = {key.id: (key.quantity_total - key.quantity_reserve) for key in keys_to_loan}
+
+    for key_id in key_ids:
+        # Check if the key is available before creating the loan
+        current_loans_for_key = loan_counts.get(key_id, 0)
+        usable_quantity = key_quantities.get(key_id, 0)
+
+        if usable_quantity > current_loans_for_key:
+            new_loan_record = Loan(key_id=key_id, borrower_id=borrower_id, loan_date=datetime.datetime.utcnow())
+            db.add(new_loan_record)
+            loan_counts[key_id] = current_loans_for_key + 1 # Increment count for next check in the same request
+    
+    # After creating loans, check if only one was created to redirect to receipt
+    new_loans = db.new
+    single_new_loan = None
+    if len(new_loans) == 1:
+        single_new_loan = list(new_loans)[0]
+    
     db.commit()
-    db.refresh(new_loan_record) # To get the new loan's ID
-
-    return RedirectResponse(url=f"/loan/receipt/{new_loan_record.id}", status_code=303)
+    if single_new_loan:
+        return RedirectResponse(url=f"/loan/receipt/{single_new_loan.id}", status_code=303)
+    return RedirectResponse(url="/active-loans", status_code=303)
 
 @app.get("/loan/receipt/{loan_id}")
 async def get_loan_receipt(loan_id: int, db: Session = Depends(get_db)):
@@ -323,79 +463,125 @@ async def config_page(request: Request):
 
 
 @app.get("/config/buildings", response_class=HTMLResponse)
-async def config_buildings(request: Request):
-    # Minimal implementation: no DB model for Building yet -> show empty list
-    buildings = []
+async def config_buildings(request: Request, db: Session = Depends(get_db)):
+    buildings = db.query(Building).order_by(Building.name).all()
     return templates.TemplateResponse("buildings.html", {"request": request, "buildings": buildings, "page_title": "Gérer les Bâtiments"})
 
 
 @app.post("/config/buildings/add", response_class=RedirectResponse)
-async def add_building(request: Request, building_name: str = Form(...)):
-    # Placeholder behaviour: do nothing persistent yet
+async def add_building(
+    db: Session = Depends(get_db),
+    building_name: str = Form(...)
+):
+    """
+    Handles the submission of the form to add a new building.
+    """
+    new_building = Building(name=building_name)
+    db.add(new_building)
+    db.commit()
     return RedirectResponse(url="/config/buildings", status_code=303)
 
 
 @app.get("/config/buildings/delete/{building_id}", response_class=RedirectResponse)
-async def delete_building(building_id: int):
-    # Placeholder: no-op
+async def delete_building(building_id: int, db: Session = Depends(get_db)):
+    building_to_delete = db.query(Building).filter(Building.id == building_id).first()
+    if building_to_delete:
+        db.delete(building_to_delete)
+        db.commit()
     return RedirectResponse(url="/config/buildings", status_code=303)
 
 
 @app.get("/config/locations", response_class=HTMLResponse)
 async def config_locations(request: Request, db: Session = Depends(get_db)):
-    # Minimal implementation: return empty lists when Location model not implemented
-    buildings = []
-    locations = []
-    return templates.TemplateResponse("locations.html", {"request": request, "buildings": buildings, "locations": locations, "page_title": "Gérer les Points d'Accès"})
+    buildings = db.query(Building).options(joinedload(Building.rooms)).order_by(Building.name).all()
+    rooms = db.query(Room).order_by(Room.name).all() # Fetch all rooms for the list
+    return templates.TemplateResponse("locations.html", {
+        "request": request,
+        "buildings": buildings,
+        "locations": rooms, # Pass rooms as locations to the template
+        "page_title": "Gérer les Points d'Accès"
+    })
 
 
 @app.post("/config/locations/add", response_class=RedirectResponse)
-async def add_location(request: Request, building_id: int = Form(...), location_name: str = Form(...), location_type: str = Form(...)):
-    # Placeholder: no-op
+async def add_location(
+    db: Session = Depends(get_db),
+    building_id: int = Form(...),
+    location_name: str = Form(...),
+    location_type: str = Form(...)
+):
+    """
+    Handles the submission of the form to add a new room (location).
+    """
+    new_room = Room(
+        name=location_name,
+        type=location_type,
+        building_id=building_id
+    )
+    db.add(new_room)
+    db.commit()
     return RedirectResponse(url="/config/locations", status_code=303)
 
 
 @app.get("/config/locations/delete/{location_id}", response_class=RedirectResponse)
-async def delete_location(location_id: int):
-    # Placeholder: no-op
+async def delete_location(location_id: int, db: Session = Depends(get_db)):
+    """
+    Deletes a room (location) by its ID.
+    """
+    room_to_delete = db.query(Room).filter(Room.id == location_id).first()
+    if room_to_delete:
+        db.delete(room_to_delete)
+        db.commit()
     return RedirectResponse(url="/config/locations", status_code=303)
 
 
 @app.get("/active-loans", response_class=HTMLResponse)
 async def view_active_loans(request: Request, db: Session = Depends(get_db)):
     # Build a grouping by borrower with loans
-    active_loans = db.query(Loan).filter(Loan.return_date == None).all()
+    active_loans = db.query(Loan).options(
+        joinedload(Loan.key),
+        joinedload(Loan.borrower)
+    ).filter(Loan.return_date == None).order_by(Loan.borrower_id, Loan.loan_date).all()
+    
     loans_by_borrower = {}
     for loan in active_loans:
-        name = loan.borrower.name if loan.borrower else "Inconnu"
-        loans_by_borrower.setdefault(name, []).append(loan)
+        # Group by the borrower object itself to handle multiple loans correctly
+        loans_by_borrower.setdefault(loan.borrower, []).append(loan)
 
     return templates.TemplateResponse("active_loans.html", {"request": request, "loans_by_borrower": loans_by_borrower, "page_title": "Emprunts en Cours"})
 
 
-@app.get("/loan/summary/borrower/{borrower_id}", response_class=HTMLResponse)
+@app.get("/loan/summary/borrower/{borrower_id}")
 async def loan_summary_borrower(request: Request, borrower_id: int, db: Session = Depends(get_db)):
     borrower = db.query(Borrower).filter(Borrower.id == borrower_id).first()
     if not borrower:
         return HTMLResponse("Emprunteur non trouvé", status_code=404)
 
-    loans = db.query(Loan).filter(Loan.borrower_id == borrower_id).all()
-    # Reuse the active_loans template: build dict with a single borrower
-    loans_by_borrower = {borrower.name: loans}
-    return templates.TemplateResponse("active_loans.html", {"request": request, "loans_by_borrower": loans_by_borrower, "page_title": f"Emprunts de {borrower.name}"})
+    loans = db.query(Loan).options(joinedload(Loan.key)).filter(
+        Loan.borrower_id == borrower_id,
+        Loan.return_date == None
+    ).all()
+    pdf_buffer = create_summary_pdf(borrower, loans)
+    filename = f"recapitulatif_{borrower.name.replace(' ', '_')}_{datetime.date.today().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(pdf_buffer, media_type='application/pdf', headers={"Content-Disposition": f"attachment; filename=\"{filename}\""})
 
 
 @app.get("/key-plan", response_class=HTMLResponse)
 async def view_key_plan(request: Request, db: Session = Depends(get_db)):
-    # Build minimal structures for the template — don't assume Location/Building models exist
-    keys = db.query(Key).order_by(Key.number).all()
-    keys_data = []
-    for k in keys:
-        # Provide an empty locations list to avoid template errors
-        keys_data.append({"number": k.number, "locations": []})
+    # Fetch keys with their associated rooms
+    keys = db.query(Key).options(joinedload(Key.rooms).joinedload(Room.building)).order_by(Key.number).all()
 
-    buildings_data = []
-    return templates.TemplateResponse("key_plan.html", {"request": request, "keys_data": keys_data, "buildings_data": buildings_data, "page_title": "Plan de Clés"})
+    # Fetch buildings with their associated rooms and the keys that open those rooms
+    buildings = db.query(Building).options(
+        joinedload(Building.rooms).joinedload(Room.keys)
+    ).order_by(Building.name).all()
+    
+    return templates.TemplateResponse("key_plan.html", {
+        "request": request,
+        "keys_data": keys,
+        "buildings_data": buildings,
+        "page_title": "Plan de Clés"
+    })
 
 
 @app.get("/key-plan/download", response_class=HTMLResponse)
@@ -414,15 +600,37 @@ async def edit_key_form(request: Request, key_id: int, db: Session = Depends(get
     key = db.query(Key).filter(Key.id == key_id).first()
     if not key:
         return HTMLResponse("Clé non trouvée", status_code=404)
-    return templates.TemplateResponse("edit_key.html", {"request": request, "key": key, "page_title": f"Modifier la Clé {key.number}"})
-
+    buildings = db.query(Building).options(joinedload(Building.rooms)).order_by(Building.name).all()
+    return templates.TemplateResponse("edit_key.html", {
+        "request": request, "key": key, "buildings": buildings,
+        "page_title": f"Modifier la Clé {key.number}"
+    })
 
 @app.post("/keys/edit/{key_id}", response_class=RedirectResponse)
-async def edit_key_submit(key_id: int, db: Session = Depends(get_db), key_number: str = Form(...), key_description: str = Form(None)):
+async def edit_key_submit(
+    key_id: int,
+    db: Session = Depends(get_db),
+    key_number: str = Form(...),
+    key_description: str = Form(...),
+    quantity_total: int = Form(...),
+    quantity_reserve: int = Form(...),
+    storage_location: str = Form(None),
+    location_ids: Optional[List[int]] = Form(None)
+):
     key = db.query(Key).filter(Key.id == key_id).first()
     if key:
         key.number = key_number
         key.description = key_description
+        key.quantity_total = quantity_total
+        key.quantity_reserve = quantity_reserve
+        key.storage_location = storage_location
+        
+        # Update associated rooms
+        key.rooms.clear()
+        if location_ids:
+            rooms = db.query(Room).filter(Room.id.in_(location_ids)).all()
+            key.rooms.extend(rooms)
+
         db.commit()
     return RedirectResponse(url="/keys", status_code=303)
 

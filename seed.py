@@ -1,6 +1,6 @@
 import random
 from sqlalchemy.orm import sessionmaker, joinedload
-from app.main import Base, engine, Building, Location, Key, Borrower, Loan
+from app.main import Base, engine, Building, Room, Key, Borrower, Loan
 
 # IMPORTANT: Run this script while the main FastAPI application is NOT running.
 
@@ -14,7 +14,7 @@ def clear_data():
     # The association table is handled automatically by SQLAlchemy's ORM
     db.query(Loan).delete(synchronize_session=False)
     db.query(Key).delete(synchronize_session=False)
-    db.query(Location).delete(synchronize_session=False)
+    db.query(Room).delete(synchronize_session=False) # Changed from Location
     db.query(Building).delete(synchronize_session=False)
     db.query(Borrower).delete(synchronize_session=False)
     db.commit()
@@ -31,22 +31,22 @@ def seed_data():
     db.commit()
     print(f"Created {len(buildings)} buildings.")
 
-    # --- 2. Create Locations ---
-    locations = []
-    location_types = ["Salle", "Porte", "Couloir", "Bureau", "Archive", "Entrée"]
+    # --- 2. Create Rooms ---
+    rooms = [] # Changed from locations
+    room_types = ["Salle", "Porte", "Couloir", "Bureau", "Archive", "Entrée"] # Changed from location_types
     for building in buildings:
         for i in range(1, 16):
-            loc_type = random.choice(location_types)
+            room_type = random.choice(room_types) # Changed from loc_type
             floor = i // 5 + 1
             room_num = f"{floor}0{i % 5}" if i % 5 > 0 else f"{floor-1}05"
-            locations.append(Location(
+            rooms.append(Room( # Changed from Location
                 building_id=building.id,
-                name=f"{loc_type} {room_num}",
-                type=loc_type
+                name=f"{room_type} {room_num}",
+                type=room_type
             ))
-    db.add_all(locations)
+    db.add_all(rooms) # Changed from locations
     db.commit()
-    print(f"Created {len(locations)} locations.")
+    print(f"Created {len(rooms)} rooms.") # Changed from locations
 
     # --- 3. Create Borrowers ---
     borrowers = [Borrower(name=f"Emprunteur {i}", email=f"user{i}@example.com") for i in range(1, 21)]
@@ -57,7 +57,7 @@ def seed_data():
     # --- 4. Create Keys ---
     passe_types = ["Passe Partiel", "Passe Général", "Clé unique"]
     storage_locations = ["Accueil", "Administration", "Réserve"]
-    all_locations = db.query(Location).all()
+    all_rooms = db.query(Room).all() # Changed from all_locations
     keys = []
     for i in range(1, 11):
         key_type = random.choice(passe_types)
@@ -70,9 +70,9 @@ def seed_data():
             quantity_total=total,
             quantity_reserve=reserve
         )
-        # Assign a random number of locations to this key
-        num_locations_for_key = 1 if key_type == "Clé unique" else random.randint(2, 10)
-        key.locations = random.sample(all_locations, num_locations_for_key)
+        # Assign a random number of rooms to this key
+        num_rooms_for_key = 1 if key_type == "Clé unique" else random.randint(2, 10) # Changed from num_locations_for_key
+        key.rooms = random.sample(all_rooms, num_rooms_for_key) # Changed from key.locations and all_locations
         keys.append(key)
     
     db.add_all(keys)
