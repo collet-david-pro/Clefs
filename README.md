@@ -1,6 +1,6 @@
 # Gestionnaire de Clés
 
-Application web simple et complète pour la gestion des clés, des stocks, des emprunts et des droits d'accès au sein d'un établissement.
+Application de bureau simple et complète pour la gestion des clés, des stocks, des emprunts et des droits d'accès au sein d'un établissement.
 
 ## Fonctionnalités
 
@@ -23,56 +23,53 @@ Application web simple et complète pour la gestion des clés, des stocks, des e
     - Lors du retour, si plusieurs personnes ont le même type de clé, une page de sélection vous permet de choisir précisément quel emprunt clôturer.
 - **Génération de PDF :** Un bon de sortie en PDF est généré pour chaque emprunt individuel, prêt à être signé.
 - **Liste des Emprunts en Cours :** Une page dédiée, **groupée par personne**, pour voir rapidement qui a quoi et pour réimprimer les bons de sortie.
+- **Autonome et Multi-plateforme :** Fonctionne comme une application native sur Windows et macOS, sans nécessiter de navigateur externe ni de connexion internet.
 
-## Installation et Lancement
+## Installation (pour les utilisateurs)
 
-Cette application est conçue pour fonctionner localement sur votre machine (macOS, Linux, Windows avec un interpréteur bash).
+L'application est disponible pour Windows et macOS.
+
+1.  Allez sur la **page des Releases** de ce projet.
+2.  Téléchargez le fichier `.zip` correspondant à votre système d'exploitation (`GestionnaireCles-Windows.zip` ou `GestionnaireCles-macOS.zip`).
+3.  Décompressez le fichier.
+4.  Lancez l'exécutable (`GestionnaireCles.exe` sur Windows, `GestionnaireCles.app` sur macOS).
+
+La base de données (`clefs.db`) sera créée automatiquement dans le même dossier que l'application au premier lancement.
+
+## Développement (pour les contributeurs)
 
 ### Prérequis
 
 - **Python 3** (version 3.7 ou supérieure).
 - `pip` pour l'installation des dépendances.
+- Un environnement virtuel est fortement recommandé.
 
 ### Instructions
 
-1.  **Rendre les scripts exécutables :**
-    Ouvrez un terminal dans le dossier du projet et lancez cette commande une seule fois :
+1.  **Clonez le dépôt :**
     ```bash
-    chmod +x start.sh seed.sh
+    git clone https://github.com/votre-nom/votre-repo.git
+    cd Clefs
     ```
 
-2.  **Lancer l'application :**
-    Pour démarrer l'application, exécutez simplement :
+2.  **Créez un environnement virtuel et installez les dépendances :**
     ```bash
-    ./start.sh
+    python3 -m venv venv
+    source venv/bin/activate  # Sur macOS/Linux
+    # venv\Scripts\activate    # Sur Windows
+    pip install -r requirements.txt
     ```
-    Ce script s'occupe d'installer les dépendances nécessaires, de lancer le serveur web et d'ouvrir automatiquement l'application dans votre navigateur.
 
-3.  **Arrêter l'application :**
-    Retournez dans le terminal où vous avez lancé le script et appuyez sur `Ctrl+C`.
+3.  **Lancer l'application en mode développement :**
+    ```bash
+    python app/main.py
+    ```
+    Cela lancera le serveur avec le rechargement automatique et ouvrira la fenêtre de l'application.
 
-## Utilisation
-
-### Remplir avec des données de test (Optionnel)
-
-> **ATTENTION :** Le script `seed.sh` est uniquement destiné à des fins de **test** ou de **démonstration**. Il **supprime toutes les données existantes** dans la base de données avant de la remplir avec un jeu de données aléatoires. Ne l'utilisez pas si vous avez déjà entré des données réelles que vous souhaitez conserver.
-
-Pour peupler l'application avec des données de test :
-1.  Assurez-vous que l'application est arrêtée.
-2.  Lancez le script `./seed.sh` et confirmez avec `o`.
-3.  Redémarrez l'application avec `./start.sh`.
-
-### Démarrage et Configuration Manuelle
-
-Pour une utilisation normale, vous pouvez configurer l'application manuellement :
-1.  Lancez l'application avec `./start.sh`.
-2.  Allez dans l'onglet **Configuration**.
-3.  Suivez l'ordre logique : créez d'abord vos **Emprunteurs**, vos **Bâtiments** et vos **Points d'Accès**.
-4.  Enfin, créez vos **Clés** en les liant aux points d'accès.
-
-### Gestion des Données
-Toute la gestion des données de base (Clés, Emprunteurs, Bâtiments, Points d'accès) se fait depuis la page **Configuration**.
-
-### Emprunts et Retours
-- **Pour emprunter :** Depuis le tableau de bord, cliquez sur "Nouvel Emprunt". Le formulaire vous présente une **liste de cases à cocher** pour sélectionner facilement une ou plusieurs clés pour un emprunteur.
-- **Pour retourner :** Depuis le tableau de bord ou la page "Emprunts en Cours", cliquez sur "Retourner". Si plusieurs personnes ont ce type de clé, sélectionnez l'emprunt exact à clôturer.
+### Remplir avec des données de test
+Le script `seed.sh` permet de peupler la base de données avec des données de démonstration.
+> **Attention :** Ce script supprime toutes les données existantes.
+```bash
+chmod +x seed.sh
+./seed.sh
+```
