@@ -14,6 +14,21 @@ VERSION=$1
 echo "Version à créer : $VERSION"
 echo
 
+# --- Vérification de la synchronisation avec le dépôt distant ---
+echo "[0/3] Vérification de la synchronisation avec le dépôt distant..."
+git remote update > /dev/null 2>&1
+LOCAL=$(git rev-parse @)
+REMOTE=$(git rev-parse @{u})
+
+if [ "$LOCAL" != "$REMOTE" ]; then
+    echo -e "\033[1;31mErreur :\033[0m Votre branche locale n'est pas à jour avec le dépôt distant (origin)."
+    echo "Veuillez utiliser 'git pull' pour récupérer les changements ou 'git push' pour envoyer les vôtres."
+    exit 1
+fi
+echo "Votre branche est synchronisée. Poursuite..."
+echo
+
+
 # Prompt for a release message
 echo "Veuillez entrer un court message pour décrire cette version (appuyez sur Entrée pour valider) :"
 read -r RELEASE_MESSAGE
@@ -23,8 +38,8 @@ if [ -z "$RELEASE_MESSAGE" ]; then
 fi
 
 echo
-# Create the annotated git tag
-echo "[1/2] Création du tag git '$VERSION'..."
+# Create the annotated git tag (maintenant étape 1/3)
+echo "[1/3] Création du tag git '$VERSION'..."
 git tag -a "$VERSION" -m "$RELEASE_MESSAGE"
 
 # Check if the tag was created successfully
@@ -35,8 +50,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Push the tag to the remote repository
-echo "[2/2] Poussée du tag '$VERSION' vers le dépôt distant (origin)..."
+# Push the tag to the remote repository (maintenant étape 2/3)
+echo "[2/3] Poussée du tag '$VERSION' vers le dépôt distant (origin)..."
 git push origin "$VERSION"
 
 if [ $? -eq 0 ]; then
