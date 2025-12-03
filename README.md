@@ -5,7 +5,7 @@ Application de bureau simple et complète pour la gestion des clés, des stocks,
 ## Fonctionnalités
 
 - **Tableau de Bord :** Vue d'ensemble en temps réel du statut de toutes les clés (disponibilité, stock, qui a emprunté quoi).
-- **Gestion des Clés (CRUD) :**
+- **Gestion des Clés :**
     - Créez, modifiez et supprimez des types de clés.
     - Définissez un **lieu de stockage** (ex: Accueil, Administration...).
     - Gérez un stock fin avec :
@@ -16,7 +16,7 @@ Application de bureau simple et complète pour la gestion des clés, des stocks,
 - **Gestion des Emprunteurs :** Maintenez une liste des personnes autorisées à emprunter des clés.
 - **Gestion de la Configuration :**
     - Définissez les **Bâtiments** de votre établissement.
-    - Créez tous les **Points d'Accès** (salles, portes, entrées...) et liez-les à un bâtiment.
+    - Créez tous les **Points d'Accès** (salles, portes, entrées, armoires...) et liez-les à un bâtiment.
 - **Liaison Clés <-> Accès :** Lors de la création ou de la modification d'une clé, cochez simplement tous les points d'accès qu'elle peut ouvrir.
 - **Plan de Clés :** Un outil puissant pour visualiser les relations entre clés et points d'accès.
     - **Vue par Clé :** Affichez tous les lieux qu'une clé spécifique peut ouvrir.
@@ -26,24 +26,27 @@ Application de bureau simple et complète pour la gestion des clés, des stocks,
     - Le système vérifie le stock utilisable et empêche l'emprunt de clés non disponibles.
     - Lors du retour, si plusieurs personnes ont le même type de clé, une page de sélection vous permet de choisir précisément quel emprunt clôturer.
 - **Génération de PDF :**
-    - **PDF individuel** : Un bon de sortie en PDF est généré pour chaque emprunt individuel, prêt à être signé.
+    - **PDF individuel** : Un bon de sortie en PDF est généré pour chaque emprunt individuel, prêt à être signé. En effet, un utilisateur peut simplement avoir besoin d'une clé en plus pour uen période donnée.
     - **PDF groupé** : Générez un document unique avec toutes les clés empruntées par une personne, idéal pour une signature groupée.
 - **Liste des Emprunts en Cours :** Une page dédiée, **groupée par personne**, pour voir rapidement qui a quoi et pour réimprimer les bons de sortie (individuels ou groupés).
 - **Rapport Complet des Clés Sorties :**
-    - Vue d'ensemble de toutes les clés actuellement empruntées.
+    - Vue d'ensemble de toutes les clés actuellement empruntées et donc en circulation.
     - Indicateurs de durée d'emprunt avec code couleur (vert=aujourd'hui, bleu=1-6j, jaune=7-29j, rouge=30+j).
     - Résumé groupé par emprunteur.
     - Fonction d'impression/export PDF pour archivage ou présentation.
-- **Autonome et Multi-plateforme :** Fonctionne comme une application native sur Windows et macOS, sans nécessiter de navigateur externe ni de connexion internet.
+- **Autonome:** Fonctionne comme une application native sur Windows, sans nécessiter de navigateur externe ni de connexion internet. L'application peut se trouver sur le réseau, mais attention, vous ne pouvez pas ouvrir l'application à plusieurs sous risque de corruption de données. 
+
+    **ATTENTION, LE FICHIER EST AUTO-SIGNÉ, WINDOWS OU VOTRE ANTIVIRUS VOUS DONNERA UNE ALERTE PROBABLEMENT**
 
 ## Installation (pour les utilisateurs)
 
-L'application est disponible pour Windows et macOS.
+L'application est disponible pour Windows.
 
 1.  Allez sur la **page des Releases** de ce projet.
-2.  Téléchargez le fichier `.zip` correspondant à votre système d'exploitation (`GestionnaireCles-Windows.zip`).
+2.  Téléchargez le fichier `.zip`.
 3.  Décompressez le fichier.
-4.  Lancez l'exécutable.
+4.  Mettez le dans un dossier dédié.
+5.  Lancez l'exécutable.
 
 ## Fonctionnement
 
@@ -53,7 +56,7 @@ Lors du premier lancement de l'application, un fichier de base de données nomm�
 - Si vous déplacez l'application, déplacez également le fichier `clefs.db` avec elle.
 - Pour faire une sauvegarde, il vous suffit de copier le fichier `clefs.db`.
 
-## Développement (pour les contributeurs)
+## Développement (pour les ceux qui veulent regarder le code)
 
 ### Prérequis
 
@@ -92,3 +95,11 @@ chmod +x seed.sh
 ```
 
 
+## Licence
+
+Ce projet est sous licence MIT.
+
+## TODO 
+
+- Version MacOS (ARM)
+- Tester l'application en reseau en ouvrant 2 instances en même temps
