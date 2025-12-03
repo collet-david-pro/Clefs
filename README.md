@@ -91,18 +91,4 @@ chmod +x seed.sh
 ./seed.sh
 ```
 
-### Créer une nouvelle release
 
-Pour créer une nouvelle version de l'application :
-
-```bash
-./create-release.sh 2.0.0
-```
-
-Ce script automatise le processus de release :
-- Crée un tag git (ex: `v2.0.0`)
-- Pousse le tag vers GitHub
-- Déclenche automatiquement le build via GitHub Actions
-- Crée une release avec le fichier exécutable Windows
-
-Pour plus de détails, consultez [RELEASE.md](RELEASE.md).
