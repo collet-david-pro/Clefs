@@ -230,13 +230,9 @@ def create_borrower_receipt_pdf(borrower: Borrower, loans: List[Loan]):
 app = FastAPI(title="Gestionnaire de Clés")
 
 # Mount static files
-if not os.path.exists("app/static"):
-    os.makedirs("app/static") # This might not be needed if static dir is always present
 app.mount("/static", StaticFiles(directory=resource_path("app/static")), name="static")
 
 # Setup templates
-if not os.path.exists("app/templates"):
-    os.makedirs("app/templates")
 templates = Jinja2Templates(directory=resource_path("app/templates"))
 
 # Dependency to get DB session
