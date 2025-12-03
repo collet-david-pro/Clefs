@@ -34,7 +34,13 @@ L'application est disponible pour Windows et macOS.
 3.  Décompressez le fichier.
 4.  Lancez l'exécutable (`GestionnaireCles.exe` sur Windows, `GestionnaireCles.app` sur macOS).
 
-La base de données (`clefs.db`) sera créée automatiquement dans le même dossier que l'application au premier lancement.
+## Fonctionnement
+
+Lors du premier lancement de l'application, un fichier de base de données nommé `clefs.db` est automatiquement créé dans le même dossier que l'exécutable. **Ce fichier est essentiel** car il stocke toutes les informations : les clés, les emprunteurs, les prêts, etc.
+
+- **Ne supprimez pas** ce fichier, sinon vous perdrez toutes vos données.
+- Si vous déplacez l'application, déplacez également le fichier `clefs.db` avec elle.
+- Pour faire une sauvegarde, il vous suffit de copier le fichier `clefs.db`.
 
 ## Développement (pour les contributeurs)
 
