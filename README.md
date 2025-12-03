@@ -103,3 +103,4 @@ Ce projet est sous licence MIT.
 
 - Version MacOS (ARM)
 - Tester l'application en reseau en ouvrant 2 instances en même temps
+- Changer la licence dans l'application pour MIT
