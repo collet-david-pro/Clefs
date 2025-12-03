@@ -30,9 +30,9 @@ Application de bureau simple et complète pour la gestion des clés, des stocks,
 L'application est disponible pour Windows et macOS.
 
 1.  Allez sur la **page des Releases** de ce projet.
-2.  Téléchargez le fichier `.zip` correspondant à votre système d'exploitation (`GestionnaireCles-Windows.zip` ou `GestionnaireCles-macOS.zip`).
+2.  Téléchargez le fichier `.zip` correspondant à votre système d'exploitation (`GestionnaireCles-Windows.zip`).
 3.  Décompressez le fichier.
-4.  Lancez l'exécutable (`GestionnaireCles.exe` sur Windows, `GestionnaireCles.app` sur macOS).
+4.  Lancez l'exécutable.
 
 ## Fonctionnement
 
