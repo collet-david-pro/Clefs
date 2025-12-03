@@ -25,8 +25,15 @@ Application de bureau simple et complète pour la gestion des clés, des stocks,
     - Empruntez une ou plusieurs clés pour une personne en une seule fois via une **liste à cocher** intuitive.
     - Le système vérifie le stock utilisable et empêche l'emprunt de clés non disponibles.
     - Lors du retour, si plusieurs personnes ont le même type de clé, une page de sélection vous permet de choisir précisément quel emprunt clôturer.
-- **Génération de PDF :** Un bon de sortie en PDF est généré pour chaque emprunt individuel, prêt à être signé.
-- **Liste des Emprunts en Cours :** Une page dédiée, **groupée par personne**, pour voir rapidement qui a quoi et pour réimprimer les bons de sortie.
+- **Génération de PDF :**
+    - **PDF individuel** : Un bon de sortie en PDF est généré pour chaque emprunt individuel, prêt à être signé.
+    - **PDF groupé** : Générez un document unique avec toutes les clés empruntées par une personne, idéal pour une signature groupée.
+- **Liste des Emprunts en Cours :** Une page dédiée, **groupée par personne**, pour voir rapidement qui a quoi et pour réimprimer les bons de sortie (individuels ou groupés).
+- **Rapport Complet des Clés Sorties :**
+    - Vue d'ensemble de toutes les clés actuellement empruntées.
+    - Indicateurs de durée d'emprunt avec code couleur (vert=aujourd'hui, bleu=1-6j, jaune=7-29j, rouge=30+j).
+    - Résumé groupé par emprunteur.
+    - Fonction d'impression/export PDF pour archivage ou présentation.
 - **Autonome et Multi-plateforme :** Fonctionne comme une application native sur Windows et macOS, sans nécessiter de navigateur externe ni de connexion internet.
 
 ## Installation (pour les utilisateurs)
