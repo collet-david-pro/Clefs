@@ -54,7 +54,7 @@ Lors du premier lancement de l'application, un fichier de base de données nomm�
 
 1.  **Clonez le dépôt :**
     ```bash
-    git clone https://github.com/votre-nom/votre-repo.git
+    git clone https://github.com/collet-david-pro/Clefs.git
     cd Clefs
     ```
 
