@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Table, func
@@ -143,52 +143,6 @@ def create_receipt_pdf(loan: Loan):
     buffer.seek(0)
     return buffer
 
-def create_summary_pdf(borrower: Borrower, loans: List[Loan]):
-    """
-    Generates a PDF summarizing all active loans for a borrower.
-    """
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    styles = getSampleStyleSheet()
-    
-    # Title
-    c.setFont("Helvetica-Bold", 18)
-    c.drawString(inch, 10 * inch, "Récapitulatif des Emprunts")
-    
-    # Borrower Details
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(inch, 9.5 * inch, f"Emprunteur : {borrower.name}")
-    
-    # Loan Details Table
-    text_y = 9 * inch
-    
-    # Table Header
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(inch, text_y, "Clé")
-    c.drawString(2.5 * inch, text_y, "Description")
-    c.drawString(5.5 * inch, text_y, "Date d'emprunt")
-    c.line(inch, text_y - 0.1 * inch, 7.5 * inch, text_y - 0.1 * inch)
-    text_y -= 0.3 * inch
-
-    # Table Rows
-    c.setFont("Helvetica", 10)
-    active_loans = [loan for loan in loans if loan.return_date is None]
-    
-    for loan in active_loans:
-        c.drawString(inch, text_y, loan.key.number)
-        
-        p = Paragraph(loan.key.description, styles['Normal'])
-        p_width, p_height = p.wrapOn(c, 2.8 * inch, 0.5 * inch)
-        p.drawOn(c, 2.5 * inch, text_y - (p_height - 10) / 2) # Center vertically
-        
-        c.drawString(5.5 * inch, text_y, loan.loan_date.strftime('%d/%m/%Y à %H:%M'))
-        text_y -= max(0.4 * inch, p_height + 10) # Dynamic row height
-
-    c.showPage()
-    c.save()
-    
-    buffer.seek(0)
-    return buffer
 # --- FastAPI App ---
 app = FastAPI(title="Gestionnaire de Clés")
 
@@ -390,7 +344,7 @@ async def new_loan_form(request: Request, key_id: int = None, db: Session = Depe
         "page_title": "Nouvel Emprunt"
     })
 
-@app.post("/loan/new", response_class=RedirectResponse)
+@app.post("/loan/new")
 async def create_loan(
     db: Session = Depends(get_db),
     key_ids: List[int] = Form(...),
@@ -425,8 +379,8 @@ async def create_loan(
     
     db.commit()
     if single_new_loan:
-        return RedirectResponse(url=f"/loan/receipt/{single_new_loan.id}", status_code=303)
-    return RedirectResponse(url="/active-loans", status_code=303)
+        return JSONResponse(content={"redirect_url": f"/loan/receipt/{single_new_loan.id}"})
+    return JSONResponse(content={"redirect_url": "/active-loans"})
 
 @app.get("/loan/receipt/{loan_id}")
 async def get_loan_receipt(loan_id: int, db: Session = Depends(get_db)):
@@ -551,21 +505,6 @@ async def view_active_loans(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("active_loans.html", {"request": request, "loans_by_borrower": loans_by_borrower, "page_title": "Emprunts en Cours"})
 
 
-@app.get("/loan/summary/borrower/{borrower_id}")
-async def loan_summary_borrower(request: Request, borrower_id: int, db: Session = Depends(get_db)):
-    borrower = db.query(Borrower).filter(Borrower.id == borrower_id).first()
-    if not borrower:
-        return HTMLResponse("Emprunteur non trouvé", status_code=404)
-
-    loans = db.query(Loan).options(joinedload(Loan.key)).filter(
-        Loan.borrower_id == borrower_id,
-        Loan.return_date == None
-    ).all()
-    pdf_buffer = create_summary_pdf(borrower, loans)
-    filename = f"recapitulatif_{borrower.name.replace(' ', '_')}_{datetime.date.today().strftime('%Y%m%d')}.pdf"
-    return StreamingResponse(pdf_buffer, media_type='application/pdf', headers={"Content-Disposition": f"attachment; filename=\"{filename}\""})
-
-
 @app.get("/key-plan", response_class=HTMLResponse)
 async def view_key_plan(request: Request, db: Session = Depends(get_db)):
     # Fetch keys with their associated rooms
@@ -652,6 +591,12 @@ async def return_loan(loan_id: int, db: Session = Depends(get_db)):
         loan.return_date = datetime.datetime.utcnow()
         db.commit()
     return RedirectResponse(url="/", status_code=303)
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about_page(request: Request):
+    return templates.TemplateResponse("about.html", {"request": request, "page_title": "À Propos"})
+
 
 # --- Desktop App Integration (pywebview) ---
 
