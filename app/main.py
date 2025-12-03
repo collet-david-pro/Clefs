@@ -473,7 +473,6 @@ async def create_loan(
     keys_to_loan = db.query(Key).filter(Key.id.in_(key_ids)).all()
     key_quantities = {key.id: (key.quantity_total - key.quantity_reserve) for key in keys_to_loan}
 
-    created_loans = []
     for key_id in key_ids:
         # Check if the key is available before creating the loan
         current_loans_for_key = loan_counts.get(key_id, 0)
@@ -482,14 +481,11 @@ async def create_loan(
         if usable_quantity > current_loans_for_key:
             new_loan_record = Loan(key_id=key_id, borrower_id=borrower_id, loan_date=datetime.datetime.utcnow())
             db.add(new_loan_record)
-            created_loans.append(new_loan_record)
             loan_counts[key_id] = current_loans_for_key + 1 # Increment count for next check in the same request
     
     db.commit()
     
-    # After commit, redirect based on number of loans created
-    if len(created_loans) == 1:
-        return JSONResponse(content={"redirect_url": f"/loan/receipt/{created_loans[0].id}"})
+    # Always redirect to active loans page
     return JSONResponse(content={"redirect_url": "/active-loans"})
 
 @app.get("/loan/receipt/{loan_id}")
