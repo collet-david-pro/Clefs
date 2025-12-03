@@ -8,7 +8,11 @@ Application de bureau simple et complète pour la gestion des clés, des stocks,
 - **Gestion des Clés (CRUD) :**
     - Créez, modifiez et supprimez des types de clés.
     - Définissez un **lieu de stockage** (ex: Accueil, Administration...).
-    - Gérez un stock fin avec une **quantité totale** et une **quantité en réserve**. Seul le stock "utilisable" (`total - réserve`) est disponible à l'emprunt.
+    - Gérez un stock fin avec :
+        - **Nombre total de clés** : Le nombre total de clés de ce type en votre possession
+        - **Nombre de clés en réserve** : Les clés placées en réserve (non disponibles au prêt)
+        - Le système calcule automatiquement les clés disponibles au prêt : `Disponibles = Total - Réserve`
+    - Interface claire avec labels explicites et textes d'aide pour éviter toute confusion
 - **Gestion des Emprunteurs :** Maintenez une liste des personnes autorisées à emprunter des clés.
 - **Gestion de la Configuration :**
     - Définissez les **Bâtiments** de votre établissement.

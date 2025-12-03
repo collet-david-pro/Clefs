@@ -30,12 +30,17 @@
                                 <input type="text" class="form-control" id="key_description" name="key_description" value="{{ key.description }}" required>
                             </div>
                             <div class="mb-3">
-                                <label for="quantity_total" class="form-label">Quantité en Stock</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="quantity_total" name="quantity_total" value="{{ key.quantity_total }}" min="1" required>
-                                    <input type="number" class="form-control" id="quantity_reserve" name="quantity_reserve" value="{{ key.quantity_reserve }}" min="0" required>
-                                    <span class="input-group-text">Totale / Réserve</span>
-                                </div>
+                                <label for="quantity_total" class="form-label">Nombre total de clés</label>
+                                <input type="number" class="form-control" id="quantity_total" name="quantity_total" value="{{ key.quantity_total }}" min="1" required>
+                                <small class="form-text text-muted">Nombre total de clés de ce type en votre possession</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="quantity_reserve" class="form-label">Nombre de clés en réserve</label>
+                                <input type="number" class="form-control" id="quantity_reserve" name="quantity_reserve" value="{{ key.quantity_reserve }}" min="0" required>
+                                <small class="form-text text-muted">Clés placées en réserve (non disponibles au prêt)</small>
+                            </div>
+                            <div class="alert alert-info py-2 px-3 mb-3">
+                                <small><strong>💡 Info :</strong> Clés disponibles au prêt = Total - Réserve</small>
                             </div>
                             <div class="mb-3">
                                 <label for="storage_location" class="form-label">Lieu de Stockage</label>
