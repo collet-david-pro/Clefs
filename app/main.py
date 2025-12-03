@@ -143,6 +143,89 @@ def create_receipt_pdf(loan: Loan):
     buffer.seek(0)
     return buffer
 
+def create_borrower_receipt_pdf(borrower: Borrower, loans: List[Loan]):
+    """
+    Generates a PDF with all keys borrowed by a specific borrower.
+    """
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    
+    # Title
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(inch, 10 * inch, "Bon de Sortie de Clés")
+    
+    # Borrower Details
+    c.setFont("Helvetica", 12)
+    text_y = 9.5 * inch
+    
+    c.drawString(inch, text_y, f"Emprunté par :")
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(3 * inch, text_y, f"{borrower.name}")
+    
+    c.setFont("Helvetica", 12)
+    c.drawString(inch, text_y - 0.4 * inch, f"Date :")
+    c.drawString(3 * inch, text_y - 0.4 * inch, f"{datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')}")
+    
+    c.drawString(inch, text_y - 0.8 * inch, f"Nombre de clés :")
+    c.drawString(3 * inch, text_y - 0.8 * inch, f"{len(loans)}")
+    
+    # Draw a line
+    c.line(inch, text_y - 1 * inch, 7.5 * inch, text_y - 1 * inch)
+    
+    # List of keys
+    c.setFont("Helvetica-Bold", 12)
+    list_y = text_y - 1.5 * inch
+    c.drawString(inch, list_y, "Liste des clés empruntées :")
+    
+    c.setFont("Helvetica", 11)
+    list_y -= 0.4 * inch
+    
+    for i, loan in enumerate(loans, 1):
+        if list_y < 2 * inch:  # Start a new page if running out of space
+            c.showPage()
+            c.setFont("Helvetica", 11)
+            list_y = 10 * inch
+        
+        c.drawString(inch + 0.2 * inch, list_y, f"{i}.")
+        c.drawString(inch + 0.5 * inch, list_y, f"{loan.key.number}")
+        c.drawString(inch + 2 * inch, list_y, f"- {loan.key.description}")
+        c.drawString(inch + 5 * inch, list_y, f"({loan.loan_date.strftime('%d/%m/%Y')})")
+        list_y -= 0.3 * inch
+    
+    # Agreement Text
+    list_y -= 0.5 * inch
+    if list_y < 4 * inch:
+        c.showPage()
+        list_y = 9 * inch
+    
+    ptext = f"""
+    Je soussigné(e), {borrower.name}, reconnais avoir reçu les {len(loans)} clé(s) mentionnée(s) ci-dessus.
+    Je m'engage à en prendre soin et à les restituer à la fin de leur utilisation.
+    En cas de perte ou de dégradation, je suis conscient(e) que ma responsabilité
+    pourra être engagée.
+    """
+    
+    p = Paragraph(ptext, styles['Normal'])
+    p.wrapOn(c, 6 * inch, 5 * inch)
+    p.drawOn(c, inch, list_y)
+    
+    # Signature
+    list_y -= 2.5 * inch
+    if list_y < 2 * inch:
+        c.showPage()
+        list_y = 8 * inch
+    
+    c.setFont("Helvetica", 12)
+    c.drawString(inch, list_y, "Signature de l'emprunteur :")
+    c.line(3 * inch, list_y - 0.1 * inch, 6 * inch, list_y - 0.1 * inch)
+    
+    c.showPage()
+    c.save()
+    
+    buffer.seek(0)
+    return buffer
+
 # --- FastAPI App ---
 app = FastAPI(title="Gestionnaire de Clés")
 
@@ -281,9 +364,15 @@ async def manage_borrowers(request: Request, db: Session = Depends(get_db)):
     Displays the page to manage borrowers (list and add form).
     """
     borrowers = db.query(Borrower).order_by(Borrower.name).all()
+    
+    # Count active loans for each borrower
+    active_loans = db.query(Loan.borrower_id, func.count(Loan.borrower_id)).filter(Loan.return_date == None).group_by(Loan.borrower_id).all()
+    loan_counts = {borrower_id: count for borrower_id, count in active_loans}
+    
     return templates.TemplateResponse("borrowers.html", {
         "request": request,
         "borrowers": borrowers,
+        "loan_counts": loan_counts,
         "page_title": "Gérer les Emprunteurs"
     })
 
@@ -311,6 +400,29 @@ async def delete_borrower(borrower_id: int, db: Session = Depends(get_db)):
         db.delete(borrower_to_delete)
         db.commit()
     return RedirectResponse(url="/borrowers", status_code=303)
+
+@app.get("/borrower/receipt/{borrower_id}")
+async def get_borrower_receipt(borrower_id: int, db: Session = Depends(get_db)):
+    """
+    Generates and returns a PDF receipt with all keys borrowed by a specific borrower.
+    """
+    borrower = db.query(Borrower).filter(Borrower.id == borrower_id).first()
+    if not borrower:
+        return HTMLResponse("Emprunteur non trouvé", status_code=404)
+    
+    # Get all active loans for this borrower
+    active_loans = db.query(Loan).options(
+        joinedload(Loan.key)
+    ).filter(Loan.borrower_id == borrower_id, Loan.return_date == None).all()
+    
+    if not active_loans:
+        return HTMLResponse("Aucun emprunt actif pour cet emprunteur", status_code=404)
+    
+    pdf_buffer = create_borrower_receipt_pdf(borrower, active_loans)
+    
+    filename = f"bon_de_sortie_cles_{borrower.name.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
+    
+    return StreamingResponse(pdf_buffer, media_type='application/pdf', headers={"Content-Disposition": f"attachment; filename=\"{filename}\""})
 
 
 # --- Loan Management Routes ---
@@ -503,6 +615,23 @@ async def view_active_loans(request: Request, db: Session = Depends(get_db)):
         loans_by_borrower.setdefault(loan.borrower, []).append(loan)
 
     return templates.TemplateResponse("active_loans.html", {"request": request, "loans_by_borrower": loans_by_borrower, "page_title": "Emprunts en Cours"})
+
+@app.get("/loans/report", response_class=HTMLResponse)
+async def loans_report(request: Request, db: Session = Depends(get_db)):
+    """
+    Displays a complete report of all active loans (keys currently out).
+    """
+    active_loans = db.query(Loan).options(
+        joinedload(Loan.key),
+        joinedload(Loan.borrower)
+    ).filter(Loan.return_date == None).order_by(Loan.key_id, Loan.loan_date).all()
+    
+    return templates.TemplateResponse("loans_report.html", {
+        "request": request,
+        "active_loans": active_loans,
+        "now": datetime.datetime.now(),
+        "page_title": "Rapport des Clés Sorties"
+    })
 
 
 @app.get("/key-plan", response_class=HTMLResponse)
