@@ -37,27 +37,35 @@ jobs:
       - name: Sign the executable
         shell: pwsh
         env:
-          # Récupération des secrets configurés dans GitHub
           CERT_BASE64: ${{ secrets.SIGNING_CERT_BASE64 }}
           CERT_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: |
-          # 1. Décoder le certificat depuis le secret Base64 vers un fichier temporaire
+          # 1. Décoder le certificat
           $certBytes = [Convert]::FromBase64String($env:CERT_BASE64)
           [IO.File]::WriteAllBytes("cert.pfx", $certBytes)
 
-          # 2. Signer l'exécutable généré dans le dossier dist/
-          # Note: On utilise un timestamp pour que la signature reste valide après expiration du certificat
+          # 2. Trouver Signtool automatiquement (peu importe la version)
+          $basePath = "C:\Program Files (x86)\Windows Kits\10\bin"
+          $signtool = Get-ChildItem -Path $basePath -Recurse -Filter "signtool.exe" | Where-Object { $_.FullName -like "*x64*" } | Select-Object -First 1
+
+          if (-not $signtool) {
+              Write-Error "Signtool introuvable !"
+              exit 1
+          }
+          Write-Host "Signtool trouvé ici : $($signtool.FullName)"
+
+          # 3. Signer l'exécutable
           $ExePath = "dist/GestionnaireCles.exe"
           
           if (Test-Path $ExePath) {
-              & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" sign /f cert.pfx /p $env:CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 $ExePath
+              & $signtool.FullName sign /f cert.pfx /p $env:CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 /fd SHA256 $ExePath
               Write-Host "Signature appliquée avec succès sur $ExePath"
           } else {
               Write-Error "Impossible de trouver $ExePath pour le signer."
               exit 1
           }
 
-          # 3. Supprimer le certificat temporaire par sécurité
+          # 4. Nettoyage
           Remove-Item "cert.pfx"
 
       - name: Prepare artifact name
