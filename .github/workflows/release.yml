@@ -63,42 +63,30 @@ jobs:
       - name: Get dependencies
         run: go mod download
 
-      - name: Build
+      - name: Build (Windows)
+        if: matrix.goos == 'windows'
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          go build -ldflags="-s -w -H windowsgui" -o ${{ matrix.output }} ./cmd/main.go
+
+      - name: Build (macOS)
+        if: matrix.goos == 'darwin'
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 1
         run: |
           go build -ldflags="-s -w" -o ${{ matrix.output }} ./cmd/main.go
-
-      - name: Create archive (Windows)
-        if: matrix.goos == 'windows'
-        run: |
-          mkdir release
-          cp ${{ matrix.output }} release/
-          cp README.md release/
-          cp LICENSE release/
-          cp start.bat release/
-          Compress-Archive -Path release/* -DestinationPath clefs-windows-amd64.zip
-
-      - name: Create archive (macOS)
-        if: matrix.goos == 'darwin'
-        run: |
-          mkdir -p release
-          cp ${{ matrix.output }} release/
-          cp README.md release/
-          cp LICENSE release/
-          cp start.sh release/
-          chmod +x release/${{ matrix.output }}
-          chmod +x release/start.sh
-          cd release && zip -r ../clefs-${{ matrix.goos }}-${{ matrix.goarch }}.zip . && cd ..
+          chmod +x ${{ matrix.output }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.goos }}-${{ matrix.goarch }}
-          path: |
-            *.zip
+          path: ${{ matrix.output }}
 
   release:
     name: Create Release
@@ -119,7 +107,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          find artifacts -name "*.zip" -exec cp {} release-files/ \;
+          find artifacts -type f \( -name "*.exe" -o ! -name "*.*" \) -exec cp {} release-files/ \;
           ls -lh release-files/
 
       - name: Get version from tag
@@ -135,28 +123,30 @@ jobs:
           ## 📦 Fichiers disponibles
           
           ### Windows
-          - **clefs-windows-amd64.zip** - Windows 64-bit (compatible x86 via émulation)
+          - **clefs-windows-amd64.exe** - Windows 64-bit (compatible x86 via émulation)
           
           ### macOS
-          - **clefs-darwin-amd64.zip** - macOS Intel (x86_64)
-          - **clefs-darwin-arm64.zip** - macOS Apple Silicon 
+          - **clefs-macos-intel** - macOS Intel (x86_64)
+          - **clefs-macos-arm64** - macOS Apple Silicon 
           
           ## 🚀 Installation
           
           ### Windows
-          1. Téléchargez `clefs-windows-amd64.zip`
-          2. Extrayez le contenu dans un dossier
-          3. Double-cliquez sur `start.bat` ou lancez `clefs-windows-amd64.exe`
+          1. Téléchargez `clefs-windows-amd64.exe`
+          2. Double-cliquez sur l'exécutable pour lancer l'application
+          3. L'application se lance sans fenêtre de terminal
           
           ### macOS
           1. Téléchargez le fichier correspondant à votre processeur :
-             - Intel : `clefs-darwin-amd64.zip`
-             - Apple Silicon : `clefs-darwin-arm64.zip`
-          2. Extrayez le contenu
-          3. Ouvrez le Terminal dans le dossier extrait
-          4. Exécutez : `chmod +x clefs-macos-* && ./start.sh`
+             - Intel : `clefs-macos-intel`
+             - Apple Silicon : `clefs-macos-arm64`
+          2. Ouvrez le Terminal dans le dossier de téléchargement
+          3. Rendez le fichier exécutable : `chmod +x clefs-macos-*`
+          4. Lancez l'application : `./clefs-macos-intel` ou `./clefs-macos-arm64`
           
           **Note macOS** : Si vous voyez un message de sécurité, allez dans Préférences Système > Sécurité et Confidentialité et autorisez l'application.
+          
+          **Note** : La base de données `clefs.db` sera créée automatiquement dans le même dossier que l'exécutable lors du premier lancement.
           
           EOF
 
@@ -165,7 +155,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: release-files/*.zip
+          files: release-files/*
           body_path: release_notes.md
           draft: false
           prerelease: false

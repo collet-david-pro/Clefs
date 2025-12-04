@@ -414,7 +414,7 @@ func ImportFromPythonDB(pythonDBPath string, currentDBPath string) error {
 		borrowerCount++
 	}
 
-	// Importer les emprunts (seulement ceux non retournés)
+	// Importer les emprunts (tous les emprunts, actifs et historique)
 	rows, err = pythonDB.Query("SELECT id, key_id, borrower_id, loan_date, return_date FROM loans ORDER BY id")
 	if err != nil {
 		return fmt.Errorf("erreur lors de la lecture des emprunts: %w", err)
@@ -428,8 +428,17 @@ func ImportFromPythonDB(pythonDBPath string, currentDBPath string) error {
 		if err := rows.Scan(&id, &keyID, &borrowerID, &loanDate, &returnDate); err != nil {
 			return fmt.Errorf("erreur lors du scan des emprunts: %w", err)
 		}
+
+		// Gérer correctement les valeurs NULL pour return_date
+		var returnDateValue interface{}
+		if returnDate.Valid && returnDate.String != "" {
+			returnDateValue = returnDate.String
+		} else {
+			returnDateValue = nil
+		}
+
 		_, err = tx.Exec("INSERT OR IGNORE INTO loans (id, key_id, borrower_id, loan_date, return_date) VALUES (?, ?, ?, ?, ?)",
-			id, keyID, borrowerID, loanDate.String, returnDate.String)
+			id, keyID, borrowerID, loanDate.String, returnDateValue)
 		if err != nil {
 			return fmt.Errorf("erreur lors de l'insertion de l'emprunt: %w", err)
 		}
