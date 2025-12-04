@@ -22,13 +22,13 @@ jobs:
             output: clefs-windows-amd64.exe
             
           # macOS Intel
-          - os: macos-latest
+          - os: macos-13
             goos: darwin
             goarch: amd64
             output: clefs-macos-intel
             
           # macOS Apple Silicon
-          - os: macos-latest
+          - os: macos-14
             goos: darwin
             goarch: arm64
             output: clefs-macos-arm64
@@ -75,18 +75,64 @@ jobs:
       - name: Build (macOS)
         if: matrix.goos == 'darwin'
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 1
         run: |
           go build -ldflags="-s -w" -o ${{ matrix.output }} ./cmd/main.go
           chmod +x ${{ matrix.output }}
+          
+      - name: Create macOS App Bundle
+        if: matrix.goos == 'darwin'
+        run: |
+          # Créer la structure du bundle .app
+          mkdir -p "Clefs.app/Contents/MacOS"
+          mkdir -p "Clefs.app/Contents/Resources"
+          
+          # Copier l'exécutable
+          cp ${{ matrix.output }} "Clefs.app/Contents/MacOS/Clefs"
+          chmod +x "Clefs.app/Contents/MacOS/Clefs"
+          
+          # Créer Info.plist
+          cat > "Clefs.app/Contents/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>Clefs</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.clefs.app</string>
+              <key>CFBundleName</key>
+              <string>Gestionnaire de Clés</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          PLIST
+          
+          # Créer une archive zip du bundle
+          zip -r "Clefs-${{ matrix.goarch }}.app.zip" "Clefs.app"
 
-      - name: Upload artifact
+      - name: Upload artifact (Windows)
+        if: matrix.goos == 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.goos }}-${{ matrix.goarch }}
           path: ${{ matrix.output }}
+          
+      - name: Upload artifact (macOS app bundle)
+        if: matrix.goos == 'darwin'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.goos }}-${{ matrix.goarch }}
+          path: "Clefs-${{ matrix.goarch }}.app.zip"
 
   release:
     name: Create Release
@@ -107,7 +153,10 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          find artifacts -type f \( -name "*.exe" -o ! -name "*.*" \) -exec cp {} release-files/ \;
+          # Copier les exécutables Windows
+          find artifacts -name "*.exe" -exec cp {} release-files/ \;
+          # Copier les bundles .app macOS
+          find artifacts -name "*.app.zip" -exec cp {} release-files/ \;
           ls -lh release-files/
 
       - name: Get version from tag
@@ -123,11 +172,11 @@ jobs:
           ## 📦 Fichiers disponibles
           
           ### Windows
-          - **clefs-windows-amd64.exe** - Windows 64-bit (compatible x86 via émulation)
+          - **clefs-windows-amd64.exe** - Windows 64-bit
           
           ### macOS
-          - **clefs-macos-intel** - macOS Intel (x86_64)
-          - **clefs-macos-arm64** - macOS Apple Silicon 
+          - **Clefs-amd64.app.zip** - macOS Intel (x86_64)
+          - **Clefs-arm64.app.zip** - macOS Apple Silicon (M1/M2/M3)
           
           ## 🚀 Installation
           
@@ -138,15 +187,21 @@ jobs:
           
           ### macOS
           1. Téléchargez le fichier correspondant à votre processeur :
-             - Intel : `clefs-macos-intel`
-             - Apple Silicon : `clefs-macos-arm64`
-          2. Ouvrez le Terminal dans le dossier de téléchargement
-          3. Rendez le fichier exécutable : `chmod +x clefs-macos-*`
-          4. Lancez l'application : `./clefs-macos-intel` ou `./clefs-macos-arm64`
+             - **Intel** : `Clefs-amd64.app.zip`
+             - **Apple Silicon (M1/M2/M3)** : `Clefs-arm64.app.zip`
+          2. Double-cliquez sur le fichier .zip pour le décompresser
+          3. Déplacez `Clefs.app` dans votre dossier Applications
+          4. Double-cliquez sur `Clefs.app` pour lancer l'application
+          5. **Si macOS bloque l'application** :
+             - Faites **clic droit** sur `Clefs.app` > **Ouvrir**
+             - Ou allez dans **Préférences Système** > **Sécurité et Confidentialité** > **Ouvrir quand même**
           
-          **Note macOS** : Si vous voyez un message de sécurité, allez dans Préférences Système > Sécurité et Confidentialité et autorisez l'application.
+          **Note** : La base de données `clefs.db` sera créée automatiquement dans le même dossier que l'application lors du premier lancement.
           
-          **Note** : La base de données `clefs.db` sera créée automatiquement dans le même dossier que l'exécutable lors du premier lancement.
+          ## 🐛 Correctifs dans cette version
+          
+          - **Correction critique** : Les emprunts en cours sont maintenant correctement importés depuis la version Python v1.0.11
+          - Les utilisateurs ayant déjà importé leur base Python doivent réimporter pour voir leurs emprunts actifs
           
           EOF
 
