@@ -1,2 +1,44 @@
-/.DS_Store
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Exécutables de test
+test_*
+test-*
+
+# Exécutables compilés
+clefs
+clefs.exe
+clefs-*
+*.exe
+
+# Base de données (optionnel - à commenter si vous voulez versionner)
+clefs.db
+
+# Sauvegardes
+backups/
+
+# Documents générés
+documents/
+
+# Go
+*.o
+*.a
+*.so
+*.test
+*.out
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
 

@@ -8,9 +8,8 @@ Cette application permet de :
 - ✅ Gérer un inventaire de clés avec quantités et réserves
 - ✅ Suivre les emprunts et retours de clés
 - ✅ Gérer les emprunteurs, bâtiments et salles
-- ✅ Générer des reçus PDF avec support UTF-8 complet
+- ✅ Générer des reçus PDF
 - ✅ Visualiser les rapports et le plan de clés
-- ✅ Compiler pour Windows, macOS et Linux sans dépendances CGO
 
 
 ## 📁 Structure du Projet
@@ -51,59 +50,93 @@ go_app/
 - Affichage des emprunteurs actuels
 - Interface optimisée avec colonnes fixes
 
-### 2. Gestion des Clés
+### 2. 🎨 Interface  
+- **Emprunts en Cours** : Vue  par emprunteur avec déploiement/repliement
+- **Clés** : Vue  par clé avec statut de disponibilité et emprunts actifs
+- **Rapport des Clés Sorties** : Vue  groupée par clé avec liste des emprunteurs
+- **Mode d'Emploi** :
+- Interface compacte et intuitive
+- Indicateurs visuels (nombre d'éléments, durées, alertes)
+
+### 3. Gestion des Clés
 - Création, modification, suppression
 - Quantités totales et réservées
 - Lieu de stockage
 - Association avec des salles (many-to-many)
+- **Vue accordéon** avec statut de disponibilité
+- **Alertes visuelles** : ⚠️ STOCK ÉPUISÉ si disponibilité = 0
+- Liste des emprunts actifs par clé
 
-### 3. Gestion des Emprunteurs
+### 4. Gestion des Emprunteurs
 - Nom et email
 - Historique des emprunts
+- Vue groupée par emprunteur
 
-### 4. Gestion des Bâtiments et Salles
+### 5. Gestion des Bâtiments et Salles
 - Organisation hiérarchique
 - Types de salles
 - Associations avec les clés
 
-### 5. Emprunts
+### 6. Emprunts
 - Création d'emprunts simples ou multiples
 - Vérification automatique de disponibilité
 - Retour de clés avec sélection si multiples emprunts
 - Horodatage automatique
+- Vue par emprunteur avec détails déployables
 
-### 6. Rapports
+### 7. Rapports
 - Emprunts actifs groupés par emprunteur
 - Plan de clés (bâtiments → salles → clés)
 - Rapport des clés sorties
+- Vue pour tous les rapports
 
-### 7. Génération de PDFs
+### 8. 📄 Génération de PDFs Automatique
+- **Enregistrement automatique** dans `./documents/`
+- **Pas de dialogue de sauvegarde** : génération instantanée
+- **Notifications** avec chemin complet du fichier
+- **Dossier créé au démarrage** : `./documents/` créé automatiquement
+
+#### Types de PDFs Disponibles
 - Reçus d'emprunt individuels
 - Reçus groupés par emprunteur
-- Plan de clés exportable
-- Rapport des emprunts
-- **Support complet UTF-8** (caractères accentués)
+- Rapport des clés sorties
+- Rapport global par emprunteur
+- Bilan des clés (stock)
+- Plan de clés complet
 
-### 8. 💾 Gestion des Sauvegardes 
+#### Structure des Fichiers
+```
+Clefs/
+├── clefs.exe (ou clefs)
+├── clefs.db (créé automatiquement)
+├── backups/ (sauvegardes automatiques)
+└── documents/ (créé au démarrage)
+    ├── recu_emprunt_123_20251204_215538.pdf
+    ├── rapport_cles_sorties_20251204_220015.pdf
+    ├── rapport_global_emprunts_20251204_220130.pdf
+    └── ...
+```
+
+### 9. 💾 Gestion des Sauvegardes 
 - **Liste complète** des sauvegardes avec date, heure et taille
 - **Restauration** en un clic avec sauvegarde automatique de sécurité
 - **Suppression** des anciennes sauvegardes
 - **Création rapide** de nouvelles sauvegardes
-- **Importation depuis Python** - Migrez facilement vos données de l'ancienne version
+- **Importation depuis Python** : Migrez facilement vos données de l'ancienne version
 - Interface dédiée accessible depuis Configuration
 - Sauvegardes exportables
 
-### 9. 🚀 Releases Automatiques Multi-Plateformes 
-- Support de **3 plateformes** :
+### 10. 🚀 Releases Automatiques 
+- Support actuel :
   - Windows x64 (compatible x86)
-  - macOS Intel (amd64)
-  - macOS Apple Silicon (arm64)
+  - **macOS** : Support en cours de développement, disponible prochainement
 
-
-### 10. 📖 Mode d'Emploi Intégré 
+### 11. 📖 Mode d'Emploi Intégré
+- **Interface accordéon** avec 10 sections
 - Guide d'utilisation complet dans l'application
 - Instructions pas à pas pour chaque fonctionnalité
 - Accessible depuis le menu principal
+- Sections : Démarrage, Tableau de Bord, Emprunts, Clés, Sauvegardes, PDFs, Configuration, Astuces, Navigation, Support
 
 ## 🛠️ Technologies Utilisées
 
@@ -121,6 +154,8 @@ go_app/
 - **github.com/phpdave11/gofpdf** : Génération de PDFs
 - Support UTF-8 avec UnicodeTranslator
 - Mise en page professionnelle
+- **Enregistrement automatique** dans `./documents/`
+- **Notifications** avec chemin complet
 
 
 ## 🗄️ Base de Données
@@ -138,77 +173,14 @@ go_app/
 ### Localisation
 La base de données `clefs.db` est créée automatiquement dans le répertoire de l'application.
 
-### 💾 Gestion des Sauvegardes 
-
-L'application intègre maintenant un système complet de gestion des sauvegardes :
-
-**Via l'interface graphique** :
-1. Aller dans **Configuration**
-2. Cliquer sur **📋 Gérer les Sauvegardes**
-3. Utiliser l'interface pour :
-   - Lister toutes les sauvegardes
-   - Créer une nouvelle sauvegarde
-   - Restaurer une sauvegarde
-   - Supprimer d'anciennes sauvegardes
-
-
-**Emplacement** : Les sauvegardes sont stockées dans `backups/`
-
-**Format des noms** : `clefs_backup_AAAAMMJJ_HHMMSS.db`
-
-### 📥 Importation depuis la Version Python 
-
-Si vous utilisez l'ancienne version Python de l'application, vous pouvez facilement importer toutes vos données :
-
-**Via l'interface graphique** :
-1. Aller dans **Configuration**
-2. Cliquer sur **📥 Importer depuis Version Python**
-3. Sélectionner votre fichier `clefs.db` issue de la version python.
-4. Confirmer l'importation
-
-**Ce qui est importé** :
-- ✅ Tous les bâtiments
-- ✅ Toutes les salles/points d'accès
-- ✅ Toutes les clés avec quantités et associations
-- ✅ Tous les emprunteurs
-- ✅ Tous les emprunts (actifs et historique)
-
-**Sécurité** : Une sauvegarde automatique de votre base actuelle est créée avant l'importation.
-
-**Note** : Les doublons sont automatiquement ignorés (basé sur les IDs).
-
-
-
-## 🔄 Migration depuis Python
-
-### Différences Principales
-
-| Aspect | Python (Original) | Go (Nouveau) |
-|--------|------------------|--------------|
-| Framework Web | FastAPI | Fyne (GUI native) |
-| Base de données | SQLAlchemy | database/sql |
-| Driver SQLite | sqlite3 (CGO) | modernc.org/sqlite (Pure Go) |
-| Templates | Jinja2 | Widgets Fyne |
-| PDF | ReportLab | gofpdf |
-| Packaging | PyInstaller | Go build natif |
-
-### Avantages de la Version Go
-
-✅ **Performance** : Exécution native, pas d'interpréteur
-✅ **Taille** : ~20 MB vs ~50+ MB avec PyInstaller
-✅ **Déploiement** : Un seul exécutable, pas de dépendances
-✅ **Cross-compilation** : Build pour toutes les plateformes depuis un seul OS
-✅ **Maintenance** : Typage statique, moins de bugs runtime
-✅ **Interface** : GUI native au lieu de navigateur web
-
 
 ---
 
-**Version** : 2.0.0  
+**Version** : 2.1.0  
 **Date** : Décembre 2024  
 **Langage** : Go 1.21+  
-**Plateformes** : Windows x64, macOS (Intel & Apple Silicon)
+**Plateformes** : Windows x64 (macOS disponible prochainement)
 
 ---
 
-COLLET David, cette application aurait été impossible à créer pour moi sans IA. 
+COLLET David, cette application aurait été impossible à créer pour moi sans IA.

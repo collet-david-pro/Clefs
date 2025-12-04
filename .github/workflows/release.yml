@@ -20,18 +20,6 @@ jobs:
             goos: windows
             goarch: amd64
             output: clefs-windows-amd64.exe
-            
-          # macOS Intel
-          - os: macos-13
-            goos: darwin
-            goarch: amd64
-            output: clefs-macos-intel
-            
-          # macOS Apple Silicon
-          - os: macos-14
-            goos: darwin
-            goarch: arm64
-            output: clefs-macos-arm64
 
     steps:
       - name: Checkout code
@@ -42,17 +30,6 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          # Fyne dependencies are already available on macOS runners
-          echo "macOS dependencies ready"
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
@@ -72,67 +49,12 @@ jobs:
         run: |
           go build -ldflags="-s -w -H windowsgui" -o ${{ matrix.output }} ./cmd/main.go
 
-      - name: Build (macOS)
-        if: matrix.goos == 'darwin'
-        env:
-          CGO_ENABLED: 1
-        run: |
-          go build -ldflags="-s -w" -o ${{ matrix.output }} ./cmd/main.go
-          chmod +x ${{ matrix.output }}
-          
-      - name: Create macOS App Bundle
-        if: matrix.goos == 'darwin'
-        run: |
-          # Créer la structure du bundle .app
-          mkdir -p "Clefs.app/Contents/MacOS"
-          mkdir -p "Clefs.app/Contents/Resources"
-          
-          # Copier l'exécutable
-          cp ${{ matrix.output }} "Clefs.app/Contents/MacOS/Clefs"
-          chmod +x "Clefs.app/Contents/MacOS/Clefs"
-          
-          # Créer Info.plist
-          cat > "Clefs.app/Contents/Info.plist" << 'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleExecutable</key>
-              <string>Clefs</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.clefs.app</string>
-              <key>CFBundleName</key>
-              <string>Gestionnaire de Clés</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>CFBundleShortVersionString</key>
-              <string>1.0</string>
-              <key>CFBundleVersion</key>
-              <string>1</string>
-              <key>LSMinimumSystemVersion</key>
-              <string>10.13</string>
-              <key>NSHighResolutionCapable</key>
-              <true/>
-          </dict>
-          </plist>
-          PLIST
-          
-          # Créer une archive zip du bundle
-          zip -r "Clefs-${{ matrix.goarch }}.app.zip" "Clefs.app"
-
       - name: Upload artifact (Windows)
         if: matrix.goos == 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.goos }}-${{ matrix.goarch }}
           path: ${{ matrix.output }}
-          
-      - name: Upload artifact (macOS app bundle)
-        if: matrix.goos == 'darwin'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.goos }}-${{ matrix.goarch }}
-          path: "Clefs-${{ matrix.goarch }}.app.zip"
 
   release:
     name: Create Release
@@ -155,8 +77,6 @@ jobs:
           mkdir -p release-files
           # Copier les exécutables Windows
           find artifacts -name "*.exe" -exec cp {} release-files/ \;
-          # Copier les bundles .app macOS
-          find artifacts -name "*.app.zip" -exec cp {} release-files/ \;
           ls -lh release-files/
 
       - name: Get version from tag
@@ -175,8 +95,7 @@ jobs:
           - **clefs-windows-amd64.exe** - Windows 64-bit
           
           ### macOS
-          - **Clefs-amd64.app.zip** - macOS Intel (x86_64)
-          - **Clefs-arm64.app.zip** - macOS Apple Silicon (M1/M2/M3)
+          ⚠️ **Les versions macOS seront disponibles prochainement**
           
           ## 🚀 Installation
           
@@ -185,23 +104,49 @@ jobs:
           2. Double-cliquez sur l'exécutable pour lancer l'application
           3. L'application se lance sans fenêtre de terminal
           
-          ### macOS
-          1. Téléchargez le fichier correspondant à votre processeur :
-             - **Intel** : `Clefs-amd64.app.zip`
-             - **Apple Silicon (M1/M2/M3)** : `Clefs-arm64.app.zip`
-          2. Double-cliquez sur le fichier .zip pour le décompresser
-          3. Déplacez `Clefs.app` dans votre dossier Applications
-          4. Double-cliquez sur `Clefs.app` pour lancer l'application
-          5. **Si macOS bloque l'application** :
-             - Faites **clic droit** sur `Clefs.app` > **Ouvrir**
-             - Ou allez dans **Préférences Système** > **Sécurité et Confidentialité** > **Ouvrir quand même**
+          **Note** : La base de données `clefs.db` et le dossier `documents/` seront créés automatiquement dans le même dossier que l'application lors du premier lancement.
           
-          **Note** : La base de données `clefs.db` sera créée automatiquement dans le même dossier que l'application lors du premier lancement.
+          ## ✨ Nouvelles Fonctionnalités
           
-          ## 🐛 Correctifs dans cette version
+          ### Interface Accordéon Complète
+          - **Emprunts en Cours** : Vue accordéon par emprunteur avec déploiement/repliement
+          - **Clés** : Vue accordéon par clé avec statut de disponibilité et emprunts actifs
+          - **Rapport des Clés Sorties** : Vue accordéon groupée par clé avec liste des emprunteurs
+          - **Mode d'Emploi** : 10 sections avec accordéons pour une navigation facile
           
-          - **Correction critique** : Les emprunts en cours sont maintenant correctement importés depuis la version Python v1.0.11
-          - Les utilisateurs ayant déjà importé leur base Python doivent réimporter pour voir leurs emprunts actifs
+          ### Système PDF Automatique
+          - **Génération automatique** : Les PDFs sont enregistrés directement dans `./documents/`
+          - **Pas de dialogue** : Plus besoin de choisir où enregistrer, tout est automatique
+          - **Notifications** : Affichage du chemin complet du fichier généré
+          - **Support UTF-8** : Gestion parfaite des accents et caractères spéciaux
+          - **Dossier créé au démarrage** : Le dossier `documents/` est créé automatiquement
+          
+          ### Types de PDFs Disponibles
+          - Reçus d'emprunt individuels
+          - Reçus groupés par emprunteur
+          - Rapport des clés sorties
+          - Rapport global par emprunteur
+          - Bilan des clés (stock)
+          - Plan de clés complet
+          
+          ## 🐛 Correctifs
+          
+          - **Correction du bug de closure** : Les boutons "Générer PDF" fonctionnent correctement pour chaque emprunteur
+          - **Amélioration de l'UX** : Interface plus compacte et intuitive avec accordéons
+          - **Encodage UTF-8** : Tous les PDFs gèrent correctement les caractères spéciaux
+          
+          ## 📂 Structure des Fichiers
+          
+          ```
+          Clefs/
+          ├── clefs.exe (ou clefs-windows-amd64.exe)
+          ├── clefs.db (créé automatiquement)
+          ├── backups/ (sauvegardes automatiques)
+          └── documents/ (PDFs générés)
+              ├── recu_emprunt_*.pdf
+              ├── rapport_cles_sorties_*.pdf
+              └── ...
+          ```
           
           EOF
 

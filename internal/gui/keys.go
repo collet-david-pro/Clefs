@@ -2,6 +2,7 @@ package gui
 
 import (
 	"clefs/internal/db"
+	"clefs/internal/pdf"
 	"fmt"
 	"strconv"
 
@@ -19,7 +20,11 @@ func createKeysView(app *App) fyne.CanvasObject {
 	})
 	addBtn.Importance = widget.HighImportance
 
-	header := container.NewBorder(nil, nil, nil, addBtn, title)
+	stockReportBtn := widget.NewButton("📦 Générer Bilan des Clés", func() {
+		generateKeyStockReportPDF(app)
+	})
+
+	header := container.NewBorder(nil, nil, nil, container.NewHBox(stockReportBtn, addBtn), title)
 
 	// Récupérer les clés
 	keys, err := db.GetAllKeys()
@@ -44,68 +49,141 @@ func createKeysView(app *App) fyne.CanvasObject {
 	return content
 }
 
-// createKeysListView crée la liste des clés
+// createKeysListView crée la liste des clés avec accordéon
 func createKeysListView(keys []db.Key, app *App) fyne.CanvasObject {
 	list := container.NewVBox()
 
 	for _, key := range keys {
 		k := key // Capture
-		
-		// Récupérer le nombre d'emprunts actifs
-		loanCount, _ := db.GetKeyActiveLoanCount(k.ID)
-		
-		// Récupérer les salles associées
-		rooms, _ := db.GetRoomsForKey(k.ID)
-		roomsText := "Aucune salle"
-		if len(rooms) > 0 {
-			roomsText = ""
-			for i, room := range rooms {
-				if i > 0 {
-					roomsText += ", "
-				}
-				roomsText += room.Name
-			}
-		}
 
-		keyInfo := container.NewVBox(
-			widget.NewLabelWithStyle(fmt.Sprintf("Clé %s", k.Number), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabel(fmt.Sprintf("Description: %s", k.Description)),
-			widget.NewLabel(fmt.Sprintf("Quantité totale: %d | Réserve: %d", k.QuantityTotal, k.QuantityReserve)),
-			widget.NewLabel(fmt.Sprintf("Emplacement: %s", k.StorageLocation)),
-			widget.NewLabel(fmt.Sprintf("Salles: %s", roomsText)),
-			widget.NewLabel(fmt.Sprintf("Emprunts actifs: %d", loanCount)),
-		)
-
-		editBtn := widget.NewButton("✏️ Modifier", func() {
-			showEditKeyDialog(app, k.ID)
-		})
-
-		deleteBtn := widget.NewButton("🗑️ Supprimer", func() {
-			app.showConfirm("Confirmer la suppression",
-				fmt.Sprintf("Êtes-vous sûr de vouloir supprimer la clé %s?", k.Number),
-				func() {
-					err := db.DeleteKey(k.ID)
-					if err != nil {
-						app.showError("Erreur", fmt.Sprintf("Erreur lors de la suppression: %v", err))
-						return
-					}
-					app.showSuccess("Clé supprimée avec succès!")
-					app.showKeys()
-				})
-		})
-		deleteBtn.Importance = widget.DangerImportance
-
-		actions := container.NewHBox(editBtn, deleteBtn)
-
-		keyCard := container.NewBorder(nil, nil, nil, actions, keyInfo)
-		list.Add(keyCard)
-		// Séparateur léger entre les éléments
-		if k.ID != keys[len(keys)-1].ID {
-			list.Add(widget.NewSeparator())
-		}
+		// Créer l'accordéon pour cette clé
+		accordion := createKeyAccordion(app, k)
+		list.Add(accordion)
+		list.Add(widget.NewLabel("")) // Espacement
 	}
 
 	return list
+}
+
+// createKeyAccordion crée un accordéon pour une clé
+func createKeyAccordion(app *App, key db.Key) *widget.Accordion {
+	// Récupérer les emprunts actifs pour cette clé
+	activeLoans, _ := db.GetActiveLoansForKey(key.ID)
+
+	// Récupérer les salles associées
+	rooms, _ := db.GetRoomsForKey(key.ID)
+	roomsText := "Aucune salle"
+	if len(rooms) > 0 {
+		roomsText = ""
+		for i, room := range rooms {
+			if i > 0 {
+				roomsText += ", "
+			}
+			roomsText += room.Name
+		}
+	}
+
+	// Calculer la disponibilité
+	borrowed := len(activeLoans)
+	available := key.QuantityTotal - key.QuantityReserve - borrowed
+
+	// Créer le contenu détaillé
+	detailsContent := container.NewVBox()
+
+	// Informations de la clé
+	detailsContent.Add(widget.NewLabel(fmt.Sprintf("📝 Description: %s", key.Description)))
+	detailsContent.Add(widget.NewLabel(fmt.Sprintf("📦 Quantité totale: %d | Réserve: %d", key.QuantityTotal, key.QuantityReserve)))
+	detailsContent.Add(widget.NewLabel(fmt.Sprintf("📍 Emplacement: %s", key.StorageLocation)))
+	detailsContent.Add(widget.NewLabel(fmt.Sprintf("🏢 Salles: %s", roomsText)))
+
+	// Statut de disponibilité avec couleur
+	statusText := fmt.Sprintf("✅ Disponibles: %d | 🔴 Sorties: %d", available, borrowed)
+	if available <= 0 {
+		statusText = fmt.Sprintf("⚠️ STOCK ÉPUISÉ | 🔴 Sorties: %d", borrowed)
+	}
+	detailsContent.Add(widget.NewLabelWithStyle(statusText, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+
+	detailsContent.Add(widget.NewSeparator())
+
+	// Liste des emprunts actifs
+	if len(activeLoans) > 0 {
+		detailsContent.Add(widget.NewLabelWithStyle("📋 Emprunts en cours:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
+
+		for _, loan := range activeLoans {
+			l := loan // Capture
+
+			// Calculer la durée
+			days := int(db.GetLoanDuration(l.LoanDate))
+			durationText := fmt.Sprintf("%d jour(s)", days)
+			if days == 0 {
+				durationText = "Aujourd'hui"
+			}
+
+			loanInfo := container.NewVBox(
+				widget.NewLabel(fmt.Sprintf("   👤 %s", l.BorrowerName)),
+				widget.NewLabel(fmt.Sprintf("   📅 Depuis le: %s (%s)",
+					l.LoanDate.Format("02/01/2006"), durationText)),
+			)
+
+			returnBtn := widget.NewButton("↩️ Retourner", func() {
+				app.showConfirm("Confirmer le retour",
+					fmt.Sprintf("Confirmer le retour de la clé %s empruntée par %s?", key.Number, l.BorrowerName),
+					func() {
+						err := db.ReturnLoan(l.ID)
+						if err != nil {
+							app.showError("Erreur", fmt.Sprintf("Erreur lors du retour: %v", err))
+							return
+						}
+						app.showSuccess("Clé retournée avec succès!")
+						app.showKeys()
+					})
+			})
+			returnBtn.Importance = widget.MediumImportance
+
+			loanRow := container.NewBorder(nil, nil, nil, returnBtn, loanInfo)
+			detailsContent.Add(loanRow)
+			detailsContent.Add(widget.NewSeparator())
+		}
+	} else {
+		detailsContent.Add(widget.NewLabel("✅ Aucun emprunt actif pour cette clé"))
+		detailsContent.Add(widget.NewSeparator())
+	}
+
+	// Boutons d'action
+	editBtn := widget.NewButton("✏️ Modifier", func() {
+		showEditKeyDialog(app, key.ID)
+	})
+
+	deleteBtn := widget.NewButton("🗑️ Supprimer", func() {
+		app.showConfirm("Confirmer la suppression",
+			fmt.Sprintf("Êtes-vous sûr de vouloir supprimer la clé %s?", key.Number),
+			func() {
+				err := db.DeleteKey(key.ID)
+				if err != nil {
+					app.showError("Erreur", fmt.Sprintf("Erreur lors de la suppression: %v", err))
+					return
+				}
+				app.showSuccess("Clé supprimée avec succès!")
+				app.showKeys()
+			})
+	})
+	deleteBtn.Importance = widget.DangerImportance
+
+	actions := container.NewHBox(editBtn, deleteBtn)
+	detailsContent.Add(actions)
+
+	// Créer l'item d'accordéon
+	title := fmt.Sprintf("🔑 %s - %s", key.Number, key.Description)
+	if borrowed > 0 {
+		title = fmt.Sprintf("🔑 %s - %s (%d sortie(s))", key.Number, key.Description, borrowed)
+	}
+
+	accordionItem := widget.NewAccordionItem(title, detailsContent)
+
+	// Créer l'accordéon
+	accordion := widget.NewAccordion(accordionItem)
+
+	return accordion
 }
 
 // showAddKeyDialog affiche la boîte de dialogue pour ajouter une clé
@@ -367,4 +445,38 @@ func showEditKeyDialog(app *App, keyID int) {
 	dialog = widget.NewModalPopUp(content, app.window.Canvas())
 	dialog.Resize(fyne.NewSize(600, 600))
 	dialog.Show()
+}
+
+// generateKeyStockReportPDF génère et enregistre le bilan du stock de clés
+func generateKeyStockReportPDF(app *App) {
+	// Récupérer toutes les clés
+	keys, err := db.GetAllKeys()
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de la récupération des clés: %v", err))
+		return
+	}
+
+	// Récupérer les comptes d'emprunts pour chaque clé
+	loanCounts := make(map[int]int)
+	for _, key := range keys {
+		count, _ := db.GetKeyActiveLoanCount(key.ID)
+		loanCounts[key.ID] = count
+	}
+
+	// Générer le PDF
+	pdfData, err := pdf.GenerateKeyStockReport(keys, loanCounts)
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de la génération du PDF: %v", err))
+		return
+	}
+
+	// Enregistrer automatiquement
+	filename := pdf.GenerateFilename("bilan_cles", 0)
+	filepath, err := pdf.SavePDF(filename, pdfData)
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de l'enregistrement: %v", err))
+		return
+	}
+
+	app.showSuccess(fmt.Sprintf("✅ Bilan enregistré : %s", filepath))
 }

@@ -6,220 +6,201 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// createHelpView crée la vue du mode d'emploi
+// createHelpView crée la vue du mode d'emploi avec accordéons
 func createHelpView() fyne.CanvasObject {
-	title := widget.NewLabelWithStyle("Mode d'Emploi", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	title := widget.NewLabelWithStyle("📖 Mode d'Emploi", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	// Introduction
-	introTitle := widget.NewLabelWithStyle("Bienvenue", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	intro := widget.NewLabel("Ce guide vous aidera à utiliser toutes les fonctionnalités du Gestionnaire de Clés. " +
-		"Suivez les instructions pas à pas pour une prise en main rapide.")
+		"Cliquez sur chaque section pour afficher les détails.")
 	intro.Wrapping = fyne.TextWrapWord
 
-	// Section 1: Démarrage
-	section1Title := widget.NewLabelWithStyle("1. Demarrage Rapide", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section1 := container.NewVBox(
-		widget.NewLabel("Pour commencer a utiliser l'application :"),
-		widget.NewLabel(""),
-		widget.NewLabel("1. Creez vos batiments (Configuration > Batiments)"),
-		widget.NewLabel("2. Ajoutez des salles/points d'acces (Configuration > Salles)"),
-		widget.NewLabel("3. Enregistrez vos cles (Configuration > Cles)"),
-		widget.NewLabel("4. Ajoutez des emprunteurs (Configuration > Emprunteurs)"),
-		widget.NewLabel("5. Commencez a gerer les emprunts depuis le Tableau de Bord"),
+	// Créer les accordéons pour chaque section
+	accordions := container.NewVBox()
+
+	// Section 1: Démarrage Rapide
+	section1 := createHelpSection(
+		"🚀 Démarrage Rapide",
+		"Pour commencer à utiliser l'application :\n\n"+
+			"1. Créez vos bâtiments (Configuration > Bâtiments)\n"+
+			"2. Ajoutez des salles/points d'accès (Configuration > Salles)\n"+
+			"3. Enregistrez vos clés (Configuration > Clés)\n"+
+			"4. Ajoutez des emprunteurs (Configuration > Emprunteurs)\n"+
+			"5. Commencez à gérer les emprunts depuis le Tableau de Bord",
 	)
+	accordions.Add(section1)
 
 	// Section 2: Tableau de Bord
-	section2Title := widget.NewLabelWithStyle("2. Tableau de Bord", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section2 := container.NewVBox(
-		widget.NewLabel("Le tableau de bord affiche toutes vos cles avec leur disponibilite en temps reel."),
-		widget.NewLabel(""),
-		widget.NewLabel("Colonnes du tableau :"),
-		widget.NewLabel("  - Numero : Identifiant de la cle"),
-		widget.NewLabel("  - Description : Description detaillee"),
-		widget.NewLabel("  - Disponibilite : Nombre disponible / Total utilisable"),
-		widget.NewLabel("  - Emprunte Par : Liste des emprunteurs actuels"),
-		widget.NewLabel("  - Actions : Boutons Emprunter/Retourner"),
-		widget.NewLabel(""),
-		widget.NewLabel("Astuce : Les cles disponibles sont en vert, les indisponibles en rouge."),
+	section2 := createHelpSection(
+		"📊 Tableau de Bord",
+		"Le tableau de bord affiche toutes vos clés avec leur disponibilité en temps réel.\n\n"+
+			"Colonnes du tableau :\n"+
+			"  • Numéro : Identifiant de la clé\n"+
+			"  • Description : Description détaillée\n"+
+			"  • Disponibilité : Nombre disponible / Total utilisable\n"+
+			"  • Emprunté Par : Liste des emprunteurs actuels\n"+
+			"  • Actions : Boutons Emprunter/Retourner\n\n"+
+			"💡 Astuce : Les clés disponibles sont en vert, les indisponibles en rouge.",
 	)
+	accordions.Add(section2)
 
-	// Section 3: Emprunts
-	section3Title := widget.NewLabelWithStyle("3. Gerer les Emprunts", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section3 := container.NewVBox(
-		widget.NewLabel("Creer un emprunt :"),
-		widget.NewLabel("  1. Cliquez sur 'Nouvel Emprunt' ou 'Emprunter' sur une cle"),
-		widget.NewLabel("  2. Selectionnez la/les cle(s) a emprunter"),
-		widget.NewLabel("  3. Choisissez l'emprunteur"),
-		widget.NewLabel("  4. Confirmez l'emprunt"),
-		widget.NewLabel(""),
-		widget.NewLabel("Retourner une cle :"),
-		widget.NewLabel("  1. Cliquez sur 'Retourner' sur la cle concernee"),
-		widget.NewLabel("  2. Si plusieurs emprunts, selectionnez celui a retourner"),
-		widget.NewLabel("  3. Confirmez le retour"),
-		widget.NewLabel(""),
-		widget.NewLabel("Astuce : Vous pouvez emprunter plusieurs cles en meme temps !"),
+	// Section 3: Gestion des Emprunts
+	section3 := createHelpSection(
+		"🔄 Gérer les Emprunts",
+		"Créer un emprunt :\n"+
+			"  1. Cliquez sur 'Nouvel Emprunt' ou 'Emprunter' sur une clé\n"+
+			"  2. Sélectionnez la/les clé(s) à emprunter\n"+
+			"  3. Choisissez l'emprunteur\n"+
+			"  4. Confirmez l'emprunt\n\n"+
+			"Retourner une clé :\n"+
+			"  1. Cliquez sur 'Retourner' sur la clé concernée\n"+
+			"  2. Si plusieurs emprunts, sélectionnez celui à retourner\n"+
+			"  3. Confirmez le retour\n\n"+
+			"💡 Astuce : Vous pouvez emprunter plusieurs clés en même temps !",
 	)
+	accordions.Add(section3)
 
 	// Section 4: Gestion des Clés
-	section4Title := widget.NewLabelWithStyle("4. Gestion des Cles", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section4 := container.NewVBox(
-		widget.NewLabel("Acces : Configuration > Cles"),
-		widget.NewLabel(""),
-		widget.NewLabel("Ajouter une cle :"),
-		widget.NewLabel("  1. Cliquez sur 'Ajouter une Cle'"),
-		widget.NewLabel("  2. Remplissez les informations :"),
-		widget.NewLabel("     - Numero (ex: K001)"),
-		widget.NewLabel("     - Description"),
-		widget.NewLabel("     - Quantite totale"),
-		widget.NewLabel("     - Quantite en reserve (non empruntable)"),
-		widget.NewLabel("     - Lieu de stockage"),
-		widget.NewLabel("  3. Associez les salles accessibles avec cette cle"),
-		widget.NewLabel("  4. Enregistrez"),
-		widget.NewLabel(""),
-		widget.NewLabel("Quantite disponible = Total - Reserve - Emprunts en cours"),
+	section4 := createHelpSection(
+		"🔑 Gestion des Clés",
+		"Accès : Configuration > Clés\n\n"+
+			"Ajouter une clé :\n"+
+			"  1. Cliquez sur 'Ajouter une Clé'\n"+
+			"  2. Remplissez les informations :\n"+
+			"     • Numéro (ex: K001)\n"+
+			"     • Description\n"+
+			"     • Quantité totale\n"+
+			"     • Quantité en réserve (non empruntable)\n"+
+			"     • Lieu de stockage\n"+
+			"  3. Associez les salles accessibles avec cette clé\n"+
+			"  4. Enregistrez\n\n"+
+			"📐 Formule : Quantité disponible = Total - Réserve - Emprunts en cours",
 	)
+	accordions.Add(section4)
 
 	// Section 5: Sauvegardes
-	section5Title := widget.NewLabelWithStyle("5. Gestion des Sauvegardes", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section5 := container.NewVBox(
-		widget.NewLabel("Acces : Configuration > Gerer les Sauvegardes"),
-		widget.NewLabel(""),
-		widget.NewLabel("Creer une sauvegarde :"),
-		widget.NewLabel("  - Cliquez sur 'Creer une Nouvelle Sauvegarde'"),
-		widget.NewLabel("  - La sauvegarde est creee instantanement"),
-		widget.NewLabel(""),
-		widget.NewLabel("Restaurer une sauvegarde :"),
-		widget.NewLabel("  1. Selectionnez la sauvegarde dans la liste"),
-		widget.NewLabel("  2. Cliquez sur 'Restaurer'"),
-		widget.NewLabel("  3. Confirmez (une sauvegarde de securite est creee automatiquement)"),
-		widget.NewLabel(""),
-		widget.NewLabel("Supprimer une sauvegarde :"),
-		widget.NewLabel("  1. Cliquez sur 'Supprimer' a cote de la sauvegarde"),
-		widget.NewLabel("  2. Confirmez la suppression"),
-		widget.NewLabel(""),
-		widget.NewLabel("Emplacement : Les sauvegardes sont dans le dossier 'backups/'"),
-		widget.NewLabel("Pensez a sauvegarder regulierement vos donnees !"),
+	section5 := createHelpSection(
+		"💾 Gestion des Sauvegardes",
+		"Accès : Configuration > Gérer les Sauvegardes\n\n"+
+			"Créer une sauvegarde :\n"+
+			"  • Cliquez sur 'Créer une Nouvelle Sauvegarde'\n"+
+			"  • La sauvegarde est créée instantanément\n\n"+
+			"Restaurer une sauvegarde :\n"+
+			"  1. Sélectionnez la sauvegarde dans la liste\n"+
+			"  2. Cliquez sur 'Restaurer'\n"+
+			"  3. Confirmez (une sauvegarde de sécurité est créée automatiquement)\n\n"+
+			"Supprimer une sauvegarde :\n"+
+			"  1. Cliquez sur 'Supprimer' à côté de la sauvegarde\n"+
+			"  2. Confirmez la suppression\n\n"+
+			"📁 Emplacement : Les sauvegardes sont dans le dossier 'backups/'\n"+
+			"⚠️ Pensez à sauvegarder régulièrement vos données !",
 	)
+	accordions.Add(section5)
 
 	// Section 6: Rapports et PDFs
-	section6Title := widget.NewLabelWithStyle("6. Rapports et PDFs", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section6 := container.NewVBox(
-		widget.NewLabel("Emprunts en Cours :"),
-		widget.NewLabel("  - Vue de tous les emprunts actifs"),
-		widget.NewLabel("  - Generation de recus individuels ou groupes"),
-		widget.NewLabel("  - Export PDF avec toutes les informations"),
-		widget.NewLabel(""),
-		widget.NewLabel("Rapport des Cles :"),
-		widget.NewLabel("  - Liste complete des cles sorties"),
-		widget.NewLabel("  - Export PDF du rapport"),
-		widget.NewLabel(""),
-		widget.NewLabel("Plan de Cles :"),
-		widget.NewLabel("  - Vue hierarchique : Batiments > Salles > Cles"),
-		widget.NewLabel("  - Export PDF du plan complet"),
-		widget.NewLabel(""),
-		widget.NewLabel("Tous les PDFs supportent les caracteres accentues !"),
+	section6 := createHelpSection(
+		"📄 Rapports et PDFs",
+		"Emprunts en Cours :\n"+
+			"  • Vue accordéon par emprunteur\n"+
+			"  • Génération de reçus individuels ou groupés\n"+
+			"  • Export PDF automatique dans ./documents/\n\n"+
+			"Rapport des Clés Sorties :\n"+
+			"  • Vue accordéon groupée par clé\n"+
+			"  • Liste des emprunteurs par clé\n"+
+			"  • Export PDF du rapport\n\n"+
+			"Plan de Clés :\n"+
+			"  • Vue hiérarchique : Bâtiments > Salles > Clés\n"+
+			"  • Export PDF du plan complet\n\n"+
+			"Bilan des Clés :\n"+
+			"  • Vue accordéon de toutes les clés\n"+
+			"  • Statut de disponibilité\n"+
+			"  • Liste des emprunts actifs par clé\n\n"+
+			"✅ Tous les PDFs supportent les caractères accentués !\n"+
+			"📂 Tous les PDFs sont enregistrés dans ./documents/",
 	)
+	accordions.Add(section6)
 
 	// Section 7: Configuration
-	section7Title := widget.NewLabelWithStyle("7. Configuration", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section7 := container.NewVBox(
-		widget.NewLabel("Le menu Configuration vous permet de gerer :"),
-		widget.NewLabel(""),
-		widget.NewLabel("Batiments : Creez et organisez vos batiments"),
-		widget.NewLabel("Salles : Ajoutez des salles/points d'acces par batiment"),
-		widget.NewLabel("Cles : Gerez votre inventaire de cles"),
-		widget.NewLabel("Emprunteurs : Enregistrez les personnes autorisees"),
-		widget.NewLabel("Sauvegardes : Gerez vos sauvegardes"),
-		widget.NewLabel("Mode Demo : Chargez des donnees de test"),
-		widget.NewLabel("Reinitialisation : Remettez a zero la base de donnees"),
+	section7 := createHelpSection(
+		"⚙️ Configuration",
+		"Le menu Configuration vous permet de gérer :\n\n"+
+			"🏢 Bâtiments : Créez et organisez vos bâtiments\n"+
+			"🚪 Salles : Ajoutez des salles/points d'accès par bâtiment\n"+
+			"🔑 Clés : Gérez votre inventaire de clés\n"+
+			"👤 Emprunteurs : Enregistrez les personnes autorisées\n"+
+			"💾 Sauvegardes : Gérez vos sauvegardes\n"+
+			"🎭 Mode Démo : Chargez des données de test\n"+
+			"🔄 Réinitialisation : Remettez à zéro la base de données",
 	)
+	accordions.Add(section7)
 
 	// Section 8: Astuces
-	section8Title := widget.NewLabelWithStyle("8. Astuces et Bonnes Pratiques", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section8 := container.NewVBox(
-		widget.NewLabel("Sauvegardez regulierement votre base de donnees"),
-		widget.NewLabel("Utilisez des numeros de cles coherents (ex: K001, K002...)"),
-		widget.NewLabel("Definissez une reserve pour les cles critiques"),
-		widget.NewLabel("Associez correctement les cles aux salles"),
-		widget.NewLabel("Verifiez les emprunts en cours regulierement"),
-		widget.NewLabel("Generez des recus PDF pour garder une trace"),
-		widget.NewLabel("Utilisez le mode demo pour vous familiariser"),
-		widget.NewLabel(""),
-		widget.NewLabel("Attention :"),
-		widget.NewLabel("  - La reinitialisation supprime TOUTES les donnees"),
-		widget.NewLabel("  - Toujours confirmer avant de supprimer"),
-		widget.NewLabel("  - Les sauvegardes ne sont pas synchronisees avec Git"),
+	section8 := createHelpSection(
+		"💡 Astuces et Bonnes Pratiques",
+		"✅ Sauvegardez régulièrement votre base de données\n"+
+			"✅ Utilisez des numéros de clés cohérents (ex: K001, K002...)\n"+
+			"✅ Définissez une réserve pour les clés critiques\n"+
+			"✅ Associez correctement les clés aux salles\n"+
+			"✅ Vérifiez les emprunts en cours régulièrement\n"+
+			"✅ Générez des reçus PDF pour garder une trace\n"+
+			"✅ Utilisez le mode démo pour vous familiariser\n\n"+
+			"⚠️ Attention :\n"+
+			"  • La réinitialisation supprime TOUTES les données\n"+
+			"  • Toujours confirmer avant de supprimer\n"+
+			"  • Les sauvegardes ne sont pas synchronisées avec Git",
 	)
+	accordions.Add(section8)
 
-	// Section 9: Raccourcis
-	section9Title := widget.NewLabelWithStyle("9. Navigation Rapide", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section9 := container.NewVBox(
-		widget.NewLabel("Utilisez le menu de gauche pour naviguer rapidement :"),
-		widget.NewLabel(""),
-		widget.NewLabel("Tableau de Bord : Vue d'ensemble et actions rapides"),
-		widget.NewLabel("Emprunts en Cours : Gestion des emprunts actifs"),
-		widget.NewLabel("Rapport des Cles : Export et statistiques"),
-		widget.NewLabel("Plan de Cles : Vue hierarchique complete"),
-		widget.NewLabel("Configuration : Parametres et gestion des donnees"),
-		widget.NewLabel("A Propos : Informations sur l'application"),
-		widget.NewLabel("Mode d'Emploi : Ce guide (vous y etes !)"),
+	// Section 9: Navigation
+	section9 := createHelpSection(
+		"🧭 Navigation Rapide",
+		"Utilisez le menu de gauche pour naviguer rapidement :\n\n"+
+			"📊 Tableau de Bord : Vue d'ensemble et actions rapides\n"+
+			"📋 Emprunts en Cours : Gestion des emprunts actifs (accordéon par emprunteur)\n"+
+			"📄 Rapport des Clés : Export et statistiques (accordéon par clé)\n"+
+			"🗺️ Plan de Clés : Vue hiérarchique complète\n"+
+			"⚙️ Configuration : Paramètres et gestion des données\n"+
+			"À Propos : Informations sur l'application\n"+
+			"📖 Mode d'Emploi : Ce guide (vous y êtes !)",
 	)
+	accordions.Add(section9)
 
 	// Section 10: Support
-	section10Title := widget.NewLabelWithStyle("10. Besoin d'Aide ?", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	section10 := container.NewVBox(
-		widget.NewLabel("Si vous rencontrez un probleme :"),
-		widget.NewLabel(""),
-		widget.NewLabel("1. Consultez ce mode d'emploi"),
-		widget.NewLabel("2. Verifiez la page 'A Propos' pour les informations"),
-		widget.NewLabel("3. Consultez le fichier README.md dans le dossier de l'application"),
-		widget.NewLabel("4. Verifiez CHANGELOG_NOUVELLES_FONCTIONNALITES.md pour les nouveautes"),
-		widget.NewLabel(""),
-		widget.NewLabel("Documentation complete disponible dans les fichiers :"),
-		widget.NewLabel("  - README.md - Guide complet"),
-		widget.NewLabel("  - INSTALLATION.md - Installation detaillee"),
-		widget.NewLabel("  - QUICK_START.md - Demarrage rapide"),
+	section10 := createHelpSection(
+		"❓ Besoin d'Aide ?",
+		"Si vous rencontrez un problème :\n\n"+
+			"1. Consultez ce mode d'emploi\n"+
+			"2. Vérifiez la page 'À Propos' pour les informations\n"+
+			"3. Consultez le fichier README.md dans le dossier de l'application\n"+
+			"4. Vérifiez CHANGELOG_NOUVELLES_FONCTIONNALITES.md pour les nouveautés\n\n"+
+			"📚 Documentation complète disponible dans les fichiers :\n"+
+			"  • README.md - Guide complet\n"+
+			"  • INSTALLATION.md - Installation détaillée\n"+
+			"  • QUICK_START.md - Démarrage rapide",
 	)
+	accordions.Add(section10)
 
-	// Assembler tout le contenu
+	// Assembler le contenu
 	content := container.NewVBox(
 		title,
 		widget.NewSeparator(),
-		introTitle,
 		intro,
 		widget.NewSeparator(),
-		section1Title,
-		section1,
-		widget.NewSeparator(),
-		section2Title,
-		section2,
-		widget.NewSeparator(),
-		section3Title,
-		section3,
-		widget.NewSeparator(),
-		section4Title,
-		section4,
-		widget.NewSeparator(),
-		section5Title,
-		section5,
-		widget.NewSeparator(),
-		section6Title,
-		section6,
-		widget.NewSeparator(),
-		section7Title,
-		section7,
-		widget.NewSeparator(),
-		section8Title,
-		section8,
-		widget.NewSeparator(),
-		section9Title,
-		section9,
-		widget.NewSeparator(),
-		section10Title,
-		section10,
+		accordions,
 	)
 
 	return container.NewVScroll(
 		container.NewPadded(content),
 	)
+}
+
+// createHelpSection crée une section d'aide avec accordéon
+func createHelpSection(title string, content string) *widget.Accordion {
+	label := widget.NewLabel(content)
+	label.Wrapping = fyne.TextWrapWord
+
+	item := widget.NewAccordionItem(title, label)
+	accordion := widget.NewAccordion(item)
+
+	return accordion
 }

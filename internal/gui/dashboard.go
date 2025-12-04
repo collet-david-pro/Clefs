@@ -47,6 +47,85 @@ func createDashboard(app *App) fyne.CanvasObject {
 	return content
 }
 
+// createBorrowersCell crée un widget pour afficher les emprunteurs de manière optimisée
+func createBorrowersCell(borrowerNames []string, app *App) fyne.CanvasObject {
+	if len(borrowerNames) == 0 {
+		return widget.NewLabel("--")
+	}
+
+	if len(borrowerNames) == 1 {
+		// Un seul emprunteur : affichage simple
+		label := widget.NewLabel(borrowerNames[0])
+		label.Wrapping = fyne.TextWrapWord
+		return label
+	}
+
+	if len(borrowerNames) <= 3 {
+		// 2-3 emprunteurs : affichage sur une ligne avec séparateurs
+		borrowersText := ""
+		for i, name := range borrowerNames {
+			if i > 0 {
+				borrowersText += " | "
+			}
+			borrowersText += name
+		}
+		label := widget.NewLabel(borrowersText)
+		label.Wrapping = fyne.TextWrapWord
+		return label
+	}
+
+	// 4+ emprunteurs : affichage compact avec bouton "voir plus"
+	compactText := fmt.Sprintf("%s, %s et %d autre(s)",
+		borrowerNames[0],
+		borrowerNames[1],
+		len(borrowerNames)-2)
+
+	// Conteneur horizontal avec le texte et le bouton
+	label := widget.NewLabel(compactText)
+	label.Wrapping = fyne.TextWrapWord
+
+	// Bouton pour voir tous les emprunteurs
+	viewAllBtn := widget.NewButton("👁", func() {
+		showAllBorrowersDialog(app, borrowerNames)
+	})
+	viewAllBtn.Importance = widget.LowImportance
+
+	return container.NewHBox(
+		label,
+		viewAllBtn,
+	)
+}
+
+// showAllBorrowersDialog affiche tous les emprunteurs dans une popup
+func showAllBorrowersDialog(app *App, borrowerNames []string) {
+	borrowerList := container.NewVBox()
+	for _, name := range borrowerNames {
+		borrowerList.Add(widget.NewLabel("• " + name))
+	}
+
+	var dialog *widget.PopUp
+
+	closeBtn := widget.NewButton("Fermer", func() {
+		app.window.Canvas().Overlays().Remove(dialog)
+	})
+
+	content := container.NewVBox(
+		widget.NewLabelWithStyle(
+			fmt.Sprintf("Emprunteurs (%d)", len(borrowerNames)),
+			fyne.TextAlignCenter,
+			fyne.TextStyle{Bold: true},
+		),
+		widget.NewSeparator(),
+		container.NewVScroll(borrowerList),
+		widget.NewSeparator(),
+		container.NewCenter(closeBtn),
+	)
+
+	dialog = widget.NewModalPopUp(content, app.window.Canvas())
+	dialog.Resize(fyne.NewSize(400, 300))
+	dialog.Show()
+}
+
 // createKeysTable crée le tableau des clés pour le tableau de bord
 func createKeysTable(keys []db.KeyWithAvailability, app *App) fyne.CanvasObject {
 	if len(keys) == 0 {
@@ -106,20 +185,9 @@ func createKeysTable(keys []db.KeyWithAvailability, app *App) fyne.CanvasObject 
 					}
 					cellContainer.Add(container.NewCenter(label))
 				case 3:
-					// Emprunteurs
-					borrowersText := "--"
-					if len(key.BorrowerNames) > 0 {
-						borrowersText = ""
-						for i, name := range key.BorrowerNames {
-							if i > 0 {
-								borrowersText += ", "
-							}
-							borrowersText += name
-						}
-					}
-					label := widget.NewLabel(borrowersText)
-					label.Wrapping = fyne.TextWrapWord
-					cellContainer.Add(label)
+					// Emprunteurs - Utiliser la nouvelle fonction optimisée
+					borrowersWidget := createBorrowersCell(key.BorrowerNames, app)
+					cellContainer.Add(borrowersWidget)
 				case 4:
 					// Actions
 					actions := container.NewHBox()
@@ -149,7 +217,7 @@ func createKeysTable(keys []db.KeyWithAvailability, app *App) fyne.CanvasObject 
 	table.SetColumnWidth(0, 100) // Numéro
 	table.SetColumnWidth(1, 300) // Description
 	table.SetColumnWidth(2, 120) // Disponibilité
-	table.SetColumnWidth(3, 250) // Emprunté Par
+	table.SetColumnWidth(3, 300) // Emprunté Par (augmenté de 250 à 300)
 	table.SetColumnWidth(4, 250) // Actions
 
 	return table

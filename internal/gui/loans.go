@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -31,59 +30,23 @@ func createActiveLoansView(app *App) fyne.CanvasObject {
 		loansByBorrower[loan.BorrowerName] = append(loansByBorrower[loan.BorrowerName], loan)
 	}
 
-	// Créer la liste
+	// Créer la liste avec accordéon
 	loansList := container.NewVBox()
 
 	if len(loansByBorrower) == 0 {
-		loansList.Add(widget.NewLabel("Aucun emprunt actif"))
+		emptyCard := widget.NewCard("", "Aucun emprunt actif",
+			widget.NewLabel("Il n'y a actuellement aucune clé empruntée."))
+		loansList.Add(emptyCard)
 	} else {
 		for borrowerName, borrowerLoans := range loansByBorrower {
-			// En-tête de l'emprunteur
-			borrowerLabel := widget.NewLabelWithStyle(
-				fmt.Sprintf("%s (%d clé(s))", borrowerName, len(borrowerLoans)),
-				fyne.TextAlignLeading,
-				fyne.TextStyle{Bold: true},
-			)
+			// Créer une copie locale pour éviter les problèmes de closure
+			currentLoans := make([]db.LoanWithDetails, len(borrowerLoans))
+			copy(currentLoans, borrowerLoans)
 
-			// Bouton pour générer le reçu
-			receiptBtn := widget.NewButton("📄 Reçu", func() {
-				generateBorrowerReceiptFromLoans(app, borrowerLoans)
-			})
-
-			borrowerHeader := container.NewBorder(nil, nil, nil, receiptBtn, borrowerLabel)
-			loansList.Add(borrowerHeader)
-
-			// Liste des clés empruntées
-			for _, loan := range borrowerLoans {
-				l := loan // Capture
-
-				loanText := fmt.Sprintf("  • Clé %s - %s (depuis le %s)",
-					l.KeyNumber,
-					l.KeyDescription,
-					l.LoanDate.Format("02/01/2006"))
-
-				loanLabel := widget.NewLabel(loanText)
-
-				returnBtn := widget.NewButton("Retourner", func() {
-					app.showConfirm("Confirmer le retour",
-						fmt.Sprintf("Confirmer le retour de la clé %s?", l.KeyNumber),
-						func() {
-							err := db.ReturnLoan(l.ID)
-							if err != nil {
-								app.showError("Erreur", fmt.Sprintf("Erreur lors du retour: %v", err))
-								return
-							}
-							app.showSuccess("Clé retournée avec succès!")
-							app.showActiveLoans()
-						})
-				})
-				returnBtn.Importance = widget.MediumImportance
-
-				loanRow := container.NewBorder(nil, nil, nil, returnBtn, loanLabel)
-				loansList.Add(loanRow)
-			}
-
-			loansList.Add(widget.NewSeparator())
+			// Créer l'accordéon pour cet emprunteur
+			accordion := createBorrowerAccordion(app, borrowerName, currentLoans)
+			loansList.Add(accordion)
+			loansList.Add(widget.NewLabel("")) // Espacement
 		}
 	}
 
@@ -102,13 +65,19 @@ func createActiveLoansView(app *App) fyne.CanvasObject {
 func createLoansReportView(app *App) fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Rapport des Clés Sorties", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
-	// Bouton pour exporter en PDF
-	exportBtn := widget.NewButton("📄 Exporter en PDF", func() {
-		exportLoansReportPDF(app)
+	// Boutons d'action
+	loansReportBtn := widget.NewButton("📊 Générer Rapport des Clés Sorties", func() {
+		generateLoansReportPDF(app)
 	})
-	exportBtn.Importance = widget.HighImportance
+	loansReportBtn.Importance = widget.HighImportance
 
-	header := container.NewBorder(nil, nil, nil, exportBtn, title)
+	globalReportBtn := widget.NewButton("📄 Générer Rapport Global par Emprunteur", func() {
+		generateGlobalBorrowerReportPDF(app)
+	})
+
+	buttonsContainer := container.NewHBox(loansReportBtn, globalReportBtn)
+
+	header := container.NewBorder(nil, nil, nil, buttonsContainer, title)
 
 	// Récupérer les emprunts actifs
 	loans, err := db.GetAllActiveLoans()
@@ -124,48 +93,120 @@ func createLoansReportView(app *App) fyne.CanvasObject {
 		time.Now().Format("02/01/2006 à 15:04"),
 		len(loans)))
 
-	// Créer le tableau
-	reportTable := createLoansReportTable(loans)
+	// Créer l'affichage groupé par clé
+	reportContent := createLoansReportByKey(loans, app)
 
 	content := container.NewBorder(
 		container.NewVBox(header, infoLabel, widget.NewSeparator()),
 		nil,
 		nil,
 		nil,
-		container.NewVScroll(reportTable),
+		container.NewVScroll(reportContent),
 	)
 
 	return content
 }
 
-// createLoansReportTable crée le tableau du rapport
-func createLoansReportTable(loans []db.LoanWithDetails) fyne.CanvasObject {
-	// En-têtes
-	headers := container.NewGridWithColumns(4,
-		widget.NewLabelWithStyle("Clé", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Description", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Emprunteur", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle("Date", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-	)
+// createLoansReportByKey crée l'affichage groupé par clé avec accordéon
+func createLoansReportByKey(loans []db.LoanWithDetails, app *App) fyne.CanvasObject {
+	// Grouper par clé
+	loansByKey := make(map[string][]db.LoanWithDetails)
+	keyInfo := make(map[string]string) // Pour stocker la description de chaque clé
 
-	// Lignes
-	rows := container.NewVBox()
 	for _, loan := range loans {
-		row := container.NewGridWithColumns(4,
-			widget.NewLabel(loan.KeyNumber),
-			widget.NewLabel(loan.KeyDescription),
-			widget.NewLabel(loan.BorrowerName),
-			widget.NewLabel(loan.LoanDate.Format("02/01/2006")),
-		)
-		rows.Add(row)
-		rows.Add(widget.NewSeparator())
+		loansByKey[loan.KeyNumber] = append(loansByKey[loan.KeyNumber], loan)
+		keyInfo[loan.KeyNumber] = loan.KeyDescription
 	}
 
-	return container.NewVBox(headers, widget.NewSeparator(), rows)
+	// Créer la liste avec accordéons
+	list := container.NewVBox()
+
+	if len(loansByKey) == 0 {
+		emptyCard := widget.NewCard("", "Aucun emprunt actif",
+			widget.NewLabel("Il n'y a actuellement aucune clé empruntée."))
+		list.Add(emptyCard)
+	} else {
+		for keyNumber, keyLoans := range loansByKey {
+			// Créer une copie locale
+			currentLoans := make([]db.LoanWithDetails, len(keyLoans))
+			copy(currentLoans, keyLoans)
+			currentKeyNumber := keyNumber
+			currentKeyDesc := keyInfo[keyNumber]
+
+			// Créer l'accordéon pour cette clé
+			accordion := createKeyLoansAccordion(app, currentKeyNumber, currentKeyDesc, currentLoans)
+			list.Add(accordion)
+			list.Add(widget.NewLabel("")) // Espacement
+		}
+	}
+
+	return list
 }
 
-// exportLoansReportPDF exporte le rapport en PDF
-func exportLoansReportPDF(app *App) {
+// createKeyLoansAccordion crée un accordéon pour une clé dans le rapport
+func createKeyLoansAccordion(app *App, keyNumber string, keyDesc string, loans []db.LoanWithDetails) *widget.Accordion {
+	// Créer le contenu détaillé
+	detailsContent := container.NewVBox()
+
+	// Informations de la clé
+	detailsContent.Add(widget.NewLabel(fmt.Sprintf("📝 %s", keyDesc)))
+	detailsContent.Add(widget.NewLabel(fmt.Sprintf("📊 %d emprunt(s) actif(s)", len(loans))))
+	detailsContent.Add(widget.NewSeparator())
+
+	// Liste des emprunteurs
+	for _, loan := range loans {
+		l := loan // Capture
+
+		// Calculer la durée
+		days := int(time.Since(l.LoanDate).Hours() / 24)
+		durationText := fmt.Sprintf("%d jour(s)", days)
+		if days == 0 {
+			durationText = "Aujourd'hui"
+		}
+
+		borrowerInfo := container.NewVBox(
+			widget.NewLabelWithStyle(
+				fmt.Sprintf("👤 %s", l.BorrowerName),
+				fyne.TextAlignLeading,
+				fyne.TextStyle{Bold: true},
+			),
+			widget.NewLabel(fmt.Sprintf("   📅 Emprunté le: %s (%s)",
+				l.LoanDate.Format("02/01/2006"), durationText)),
+		)
+
+		returnBtn := widget.NewButton("↩️ Retourner", func() {
+			app.showConfirm("Confirmer le retour",
+				fmt.Sprintf("Confirmer le retour de la clé %s empruntée par %s?", l.KeyNumber, l.BorrowerName),
+				func() {
+					err := db.ReturnLoan(l.ID)
+					if err != nil {
+						app.showError("Erreur", fmt.Sprintf("Erreur lors du retour: %v", err))
+						return
+					}
+					app.showSuccess("Clé retournée avec succès!")
+					app.showLoansReport()
+				})
+		})
+		returnBtn.Importance = widget.MediumImportance
+
+		borrowerRow := container.NewBorder(nil, nil, nil, returnBtn, borrowerInfo)
+		detailsContent.Add(borrowerRow)
+		detailsContent.Add(widget.NewSeparator())
+	}
+
+	// Créer l'item d'accordéon
+	title := fmt.Sprintf("🔑 %s - %d emprunteur(s)", keyNumber, len(loans))
+
+	accordionItem := widget.NewAccordionItem(title, detailsContent)
+
+	// Créer l'accordéon
+	accordion := widget.NewAccordion(accordionItem)
+
+	return accordion
+}
+
+// generateLoansReportPDF génère et enregistre le rapport des clés sorties
+func generateLoansReportPDF(app *App) {
 	// Récupérer les emprunts actifs
 	loans, err := db.GetAllActiveLoans()
 	if err != nil {
@@ -185,34 +226,19 @@ func exportLoansReportPDF(app *App) {
 		return
 	}
 
-	// Sauvegarder le fichier
-	filename := fmt.Sprintf("rapport_cles_sorties_%s.pdf", time.Now().Format("20060102"))
+	// Enregistrer automatiquement
+	filename := pdf.GenerateFilename("rapport_cles_sorties", 0)
+	filepath, err := pdf.SavePDF(filename, pdfData)
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de l'enregistrement: %v", err))
+		return
+	}
 
-	saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
-		if err != nil {
-			app.showError("Erreur", fmt.Sprintf("Erreur: %v", err))
-			return
-		}
-		if writer == nil {
-			return
-		}
-		defer writer.Close()
-
-		_, err = writer.Write(pdfData)
-		if err != nil {
-			app.showError("Erreur", fmt.Sprintf("Erreur lors de l'écriture du fichier: %v", err))
-			return
-		}
-
-		app.showSuccess("Rapport PDF généré avec succès!")
-	}, app.window)
-
-	saveDialog.SetFileName(filename)
-	saveDialog.Show()
+	app.showSuccess(fmt.Sprintf("✅ Rapport enregistré : %s", filepath))
 }
 
-// generateBorrowerReceiptFromLoans génère un reçu pour un emprunteur à partir de ses emprunts
-func generateBorrowerReceiptFromLoans(app *App, loans []db.LoanWithDetails) {
+// generateBorrowerReceiptPDF génère et enregistre un reçu groupé pour un emprunteur
+func generateBorrowerReceiptPDF(app *App, loans []db.LoanWithDetails) {
 	if len(loans) == 0 {
 		return
 	}
@@ -231,30 +257,117 @@ func generateBorrowerReceiptFromLoans(app *App, loans []db.LoanWithDetails) {
 		return
 	}
 
-	// Sauvegarder le fichier
-	filename := fmt.Sprintf("bon_de_sortie_cles_%s_%s.pdf",
-		borrower.Name,
-		time.Now().Format("20060102"))
+	// Enregistrer automatiquement
+	filename := pdf.GenerateFilename(fmt.Sprintf("recu_emprunteur_%s", borrower.Name), 0)
+	filepath, err := pdf.SavePDF(filename, pdfData)
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de l'enregistrement: %v", err))
+		return
+	}
 
-	saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
-		if err != nil {
-			app.showError("Erreur", fmt.Sprintf("Erreur: %v", err))
-			return
+	app.showSuccess(fmt.Sprintf("✅ Reçu enregistré : %s", filepath))
+}
+
+// generateGlobalBorrowerReportPDF génère et enregistre le rapport global par emprunteur
+func generateGlobalBorrowerReportPDF(app *App) {
+	// Récupérer les emprunts actifs
+	loans, err := db.GetAllActiveLoans()
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de la récupération des emprunts: %v", err))
+		return
+	}
+
+	if len(loans) == 0 {
+		app.showError("Aucun emprunt", "Aucun emprunt actif à afficher.")
+		return
+	}
+
+	// Grouper par emprunteur
+	loansByBorrower := make(map[string][]db.LoanWithDetails)
+	for _, loan := range loans {
+		loansByBorrower[loan.BorrowerName] = append(loansByBorrower[loan.BorrowerName], loan)
+	}
+
+	// Générer le PDF
+	pdfData, err := pdf.GenerateGlobalBorrowerReport(loansByBorrower)
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de la génération du PDF: %v", err))
+		return
+	}
+
+	// Enregistrer automatiquement
+	filename := pdf.GenerateFilename("rapport_global_emprunteurs", 0)
+	filepath, err := pdf.SavePDF(filename, pdfData)
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de l'enregistrement: %v", err))
+		return
+	}
+
+	app.showSuccess(fmt.Sprintf("✅ Rapport enregistré : %s", filepath))
+}
+
+// createBorrowerAccordion crée un accordéon pour un emprunteur
+func createBorrowerAccordion(app *App, borrowerName string, loans []db.LoanWithDetails) *widget.Accordion {
+	// Créer le contenu détaillé (qui sera caché/affiché)
+	detailsContent := container.NewVBox()
+
+	// Liste des clés avec détails
+	for _, loan := range loans {
+		l := loan // Capture
+
+		// Calculer la durée
+		days := int(time.Since(l.LoanDate).Hours() / 24)
+		durationText := fmt.Sprintf("%d jour(s)", days)
+		if days == 0 {
+			durationText = "Aujourd'hui"
 		}
-		if writer == nil {
-			return
-		}
-		defer writer.Close()
 
-		_, err = writer.Write(pdfData)
-		if err != nil {
-			app.showError("Erreur", fmt.Sprintf("Erreur lors de l'écriture du fichier: %v", err))
-			return
-		}
+		keyInfo := container.NewVBox(
+			widget.NewLabelWithStyle(
+				fmt.Sprintf("🔑 %s", l.KeyNumber),
+				fyne.TextAlignLeading,
+				fyne.TextStyle{Bold: true},
+			),
+			widget.NewLabel(fmt.Sprintf("   %s", l.KeyDescription)),
+			widget.NewLabel(fmt.Sprintf("   📅 Emprunté le: %s (%s)",
+				l.LoanDate.Format("02/01/2006"), durationText)),
+		)
 
-		app.showSuccess("Reçu PDF généré avec succès!")
-	}, app.window)
+		returnBtn := widget.NewButton("↩️ Retourner", func() {
+			app.showConfirm("Confirmer le retour",
+				fmt.Sprintf("Confirmer le retour de la clé %s?", l.KeyNumber),
+				func() {
+					err := db.ReturnLoan(l.ID)
+					if err != nil {
+						app.showError("Erreur", fmt.Sprintf("Erreur lors du retour: %v", err))
+						return
+					}
+					app.showSuccess("Clé retournée avec succès!")
+					app.showActiveLoans()
+				})
+		})
+		returnBtn.Importance = widget.MediumImportance
 
-	saveDialog.SetFileName(filename)
-	saveDialog.Show()
+		keyRow := container.NewBorder(nil, nil, nil, returnBtn, keyInfo)
+		detailsContent.Add(keyRow)
+		detailsContent.Add(widget.NewSeparator())
+	}
+
+	// Bouton pour générer le reçu groupé
+	generateReceiptBtn := widget.NewButton("📄 Générer PDF du Reçu", func() {
+		generateBorrowerReceiptPDF(app, loans)
+	})
+	generateReceiptBtn.Importance = widget.HighImportance
+	detailsContent.Add(generateReceiptBtn)
+
+	// Créer l'item d'accordéon
+	accordionItem := widget.NewAccordionItem(
+		fmt.Sprintf("👤 %s - %d clé(s)", borrowerName, len(loans)),
+		detailsContent,
+	)
+
+	// Créer l'accordéon
+	accordion := widget.NewAccordion(accordionItem)
+
+	return accordion
 }

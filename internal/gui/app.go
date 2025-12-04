@@ -21,8 +21,13 @@ type App struct {
 // NewApp crée une nouvelle instance de l'application
 func NewApp(dbPath string) *App {
 	a := app.New()
-	w := a.NewWindow("Gestionnaire de Clés")
-	w.Resize(fyne.NewSize(1200, 800))
+
+	// Appliquer le thème simple et lisible
+	ApplySimpleTheme(a)
+
+	w := a.NewWindow("🔑 Gestionnaire de Clés")
+	w.Resize(fyne.NewSize(1400, 900))
+	w.CenterOnScreen()
 
 	return &App{
 		fyneApp: a,
@@ -46,8 +51,13 @@ func (a *App) Run() {
 	a.window.ShowAndRun()
 }
 
-// createMenu crée le menu de navigation
+// createMenu crée le menu de navigation moderne
 func (a *App) createMenu() fyne.CanvasObject {
+	// Titre de la sidebar
+	titleLabel := widget.NewLabelWithStyle("MENU PRINCIPAL", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	titleCard := container.NewPadded(titleLabel)
+
+	// Boutons principaux avec style moderne
 	dashboardBtn := widget.NewButton("📊 Tableau de Bord", func() {
 		a.showDashboard()
 	})
@@ -56,54 +66,61 @@ func (a *App) createMenu() fyne.CanvasObject {
 	activeLoansBtn := widget.NewButton("📋 Emprunts en Cours", func() {
 		a.showActiveLoans()
 	})
+	activeLoansBtn.Importance = widget.MediumImportance
 
 	reportsBtn := widget.NewButton("📄 Rapport des Clés", func() {
 		a.showLoansReport()
 	})
+	reportsBtn.Importance = widget.MediumImportance
 
 	keyPlanBtn := widget.NewButton("🗺️ Plan de Clés", func() {
 		a.showKeyPlan()
 	})
+	keyPlanBtn.Importance = widget.MediumImportance
 
-	separator1 := widget.NewSeparator()
+	// Section Configuration
+	configSection := widget.NewCard("", "", container.NewVBox(
+		widget.NewButton("⚙️ Configuration", func() {
+			a.showConfig()
+		}),
+	))
 
-	configBtn := widget.NewButton("⚙️ Configuration", func() {
-		a.showConfig()
-	})
+	// Section Aide
+	helpSection := widget.NewCard("", "", container.NewVBox(
+		widget.NewButton("📖 Mode d'Emploi", func() {
+			a.showHelp()
+		}),
+		widget.NewButton("À Propos", func() {
+			a.showAbout()
+		}),
+	))
 
-	separator2 := widget.NewSeparator()
-
-	helpBtn := widget.NewButton("📖 Mode d'Emploi", func() {
-		a.showHelp()
-	})
-
-	aboutBtn := widget.NewButton("ℹ️ À Propos", func() {
-		a.showAbout()
-	})
-
-	separator3 := widget.NewSeparator()
-
-	// Bouton Quitter
+	// Bouton Quitter avec style warning
 	quitBtn := widget.NewButton("🚪 Quitter", func() {
 		a.quit()
 	})
-	quitBtn.Importance = widget.WarningImportance
+	quitBtn.Importance = widget.DangerImportance
 
+	// Conteneur principal du menu avec espacement amélioré
 	menuBox := container.NewVBox(
-		dashboardBtn,
-		activeLoansBtn,
-		reportsBtn,
-		keyPlanBtn,
-		separator1,
-		configBtn,
-		separator2,
-		helpBtn,
-		aboutBtn,
-		separator3,
-		quitBtn,
+		titleCard,
+		widget.NewSeparator(),
+		container.NewPadded(container.NewVBox(
+			dashboardBtn,
+			activeLoansBtn,
+			reportsBtn,
+			keyPlanBtn,
+		)),
+		widget.NewSeparator(),
+		container.NewPadded(configSection),
+		container.NewPadded(helpSection),
+		widget.NewSeparator(),
+		container.NewPadded(quitBtn),
 	)
 
-	return container.NewVScroll(menuBox)
+	// Retourner le menu dans un scroll avec une largeur fixe
+	scroll := container.NewVScroll(menuBox)
+	return container.NewMax(scroll)
 }
 
 // setContent met à jour le contenu principal

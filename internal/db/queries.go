@@ -680,3 +680,13 @@ func CreateMultipleLoans(keyIDs []int, borrowerID int) error {
 
 	return tx.Commit()
 }
+
+// GetActiveLoansForKey est un alias pour GetActiveLoansByKeyID
+func GetActiveLoansForKey(keyID int) ([]LoanWithDetails, error) {
+	return GetActiveLoansByKeyID(keyID)
+}
+
+// GetLoanDuration calcule la durée d'un emprunt en jours
+func GetLoanDuration(loanDate time.Time) float64 {
+	return time.Since(loanDate).Hours() / 24
+}

@@ -4,11 +4,9 @@ import (
 	"clefs/internal/db"
 	"clefs/internal/pdf"
 	"fmt"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -16,11 +14,13 @@ import (
 func createKeyPlanView(app *App) fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Plan de Clés", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
-	// Bouton pour exporter en PDF
-	exportBtn := widget.NewButton("📄 Exporter en PDF", func() {
-		exportKeyPlanPDF(app)
+	// Bouton d'action
+	exportBtn := widget.NewButton("📄 Générer PDF du Plan", func() {
+		generateKeyPlanPDF(app)
 	})
 	exportBtn.Importance = widget.HighImportance
+
+	buttonsContainer := container.NewHBox(exportBtn)
 
 	// Récupérer les données du plan de clés
 	buildingsMap, err := db.GetKeyPlanData()
@@ -41,7 +41,7 @@ func createKeyPlanView(app *App) fyne.CanvasObject {
 		container.NewTabItem("Cles -> Portes", container.NewVScroll(keysView)),
 	)
 
-	header := container.NewBorder(nil, nil, nil, exportBtn, title)
+	header := container.NewBorder(nil, nil, nil, buttonsContainer, title)
 
 	content := container.NewBorder(
 		header,
@@ -147,7 +147,7 @@ func createKeysToRoomsView() fyne.CanvasObject {
 			planBox.Add(widget.NewLabel("   Aucune porte associée"))
 		} else {
 			planBox.Add(widget.NewLabel("   Ouvre les portes suivantes:"))
-			
+
 			// Grouper par bâtiment
 			buildingRooms := make(map[int][]db.Room)
 			for _, room := range rooms {
@@ -177,8 +177,8 @@ func createKeysToRoomsView() fyne.CanvasObject {
 	return planBox
 }
 
-// exportKeyPlanPDF exporte le plan de clés en PDF
-func exportKeyPlanPDF(app *App) {
+// generateKeyPlanPDF génère et enregistre le plan de clés en PDF
+func generateKeyPlanPDF(app *App) {
 	// Récupérer les données du plan de clés
 	buildingsMap, err := db.GetKeyPlanData()
 	if err != nil {
@@ -198,28 +198,13 @@ func exportKeyPlanPDF(app *App) {
 		return
 	}
 
-	// Sauvegarder le fichier
-	filename := fmt.Sprintf("plan_de_cles_%s.pdf", time.Now().Format("20060102"))
+	// Enregistrer automatiquement
+	filename := pdf.GenerateFilename("plan_de_cles", 0)
+	filepath, err := pdf.SavePDF(filename, pdfData)
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de l'enregistrement: %v", err))
+		return
+	}
 
-	saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
-		if err != nil {
-			app.showError("Erreur", fmt.Sprintf("Erreur: %v", err))
-			return
-		}
-		if writer == nil {
-			return
-		}
-		defer writer.Close()
-
-		_, err = writer.Write(pdfData)
-		if err != nil {
-			app.showError("Erreur", fmt.Sprintf("Erreur lors de l'écriture du fichier: %v", err))
-			return
-		}
-
-		app.showSuccess("Plan de clés PDF généré avec succès!")
-	}, app.window)
-
-	saveDialog.SetFileName(filename)
-	saveDialog.Show()
+	app.showSuccess(fmt.Sprintf("✅ Plan de clés enregistré : %s", filepath))
 }
