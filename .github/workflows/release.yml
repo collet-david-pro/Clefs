@@ -78,7 +78,6 @@ jobs:
           cp ${{ matrix.output }} release/
           cp README.md release/
           cp LICENSE release/
-          cp INSTALLATION.md release/
           cp start.bat release/
           Compress-Archive -Path release/* -DestinationPath clefs-windows-amd64.zip
 
@@ -89,7 +88,6 @@ jobs:
           cp ${{ matrix.output }} release/
           cp README.md release/
           cp LICENSE release/
-          cp INSTALLATION.md release/
           cp start.sh release/
           chmod +x release/${{ matrix.output }}
           chmod +x release/start.sh
@@ -141,7 +139,7 @@ jobs:
           
           ### macOS
           - **clefs-darwin-amd64.zip** - macOS Intel (x86_64)
-          - **clefs-darwin-arm64.zip** - macOS Apple Silicon (M1/M2/M3)
+          - **clefs-darwin-arm64.zip** - macOS Apple Silicon 
           
           ## 🚀 Installation
           
@@ -160,17 +158,6 @@ jobs:
           
           **Note macOS** : Si vous voyez un message de sécurité, allez dans Préférences Système > Sécurité et Confidentialité et autorisez l'application.
           
-          ## 📝 Nouveautés
-          
-          Consultez le fichier IMPROVEMENTS.md pour la liste complète des fonctionnalités.
-          
-          ## 🐛 Problèmes connus
-          
-          Aucun problème connu pour cette version.
-          
-          ## 📞 Support
-          
-          Pour toute question ou problème, ouvrez une issue sur GitHub.
           EOF
 
       - name: Create Release
