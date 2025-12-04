@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - Gestionnaire de Clés</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+    {% include 'navbar.html' %}
+
+    <main class="container" style="padding-top: 5rem;">
+        <h1>{{ page_title }}</h1>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        Modifier la clé : {{ key.number }}
+                    </div>
+                    <div class="card-body">
+                        <form action="/keys/edit/{{ key.id }}" method="post">
+                            <div class="mb-3">
+                                <label for="key_number" class="form-label">Numéro / Identifiant</label>
+                                <input type="text" class="form-control" id="key_number" name="key_number" value="{{ key.number }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="key_description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="key_description" name="key_description" value="{{ key.description }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="quantity_total" class="form-label">Nombre total de clés</label>
+                                <input type="number" class="form-control" id="quantity_total" name="quantity_total" value="{{ key.quantity_total }}" min="1" required>
+                                <small class="form-text text-muted">Nombre total de clés de ce type en votre possession</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="quantity_reserve" class="form-label">Nombre de clés en réserve</label>
+                                <input type="number" class="form-control" id="quantity_reserve" name="quantity_reserve" value="{{ key.quantity_reserve }}" min="0" required>
+                                <small class="form-text text-muted">Clés placées en réserve (non disponibles au prêt)</small>
+                            </div>
+                            <div class="alert alert-info py-2 px-3 mb-3">
+                                <small><strong>💡 Info :</strong> Clés disponibles au prêt = Total - Réserve</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="storage_location" class="form-label">Lieu de Stockage</label>
+                                <input type="text" class="form-control" id="storage_location" name="storage_location" list="storage_locations" value="{{ key.storage_location or '' }}" placeholder="Ex: Accueil, Boîte 5...">
+                                <datalist id="storage_locations">
+                                    <option value="Accueil">
+                                    <option value="Administration">
+                                    <option value="Réserve">
+                                </datalist>
+                            </div>
+                            <hr>
+                            <div class="mb-3">
+                                <label class="form-label">Points d'accès autorisés</label>
+                                <div class="form-control" style="height: 250px; overflow-y: scroll;">
+                                    {% set key_location_ids = key.locations | map(attribute='id') | list %}
+                                    {% for building in buildings %}
+                                        <h6>{{ building.name }}</h6>
+                                        {% for location in building.locations %}
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="location_ids" value="{{ location.id }}" id="loc_{{ location.id }}" {% if location.id in key_location_ids %}checked{% endif %}>
+                                            <label class="form-check-label" for="loc_{{ location.id }}">
+                                                {{ location.name }} ({{ location.type }})
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                        {% if not loop.last %}<hr class="my-2">{% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end mt-4">
+                                <a href="/keys" class="btn btn-secondary me-2">Annuler</a>
+                                <button type="submit" class="btn btn-primary">Enregistrer les Modifications</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
