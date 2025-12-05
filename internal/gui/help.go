@@ -18,50 +18,79 @@ func createHelpView() fyne.CanvasObject {
 	// Créer les accordéons pour chaque section
 	accordions := container.NewVBox()
 
-	// Section 1: Démarrage Rapide
+	// Section 1: Installation & Mise à jour
 	section1 := createHelpSection(
+		"📥 Installation & Mise à jour",
+		"IMPORTANT : Placez toujours l'application dans un dossier dédié (ex: Documents/Clefs) car elle crée ses propres fichiers (base de données, documents, sauvegardes).\n\n"+
+			"Windows :\n"+
+			"  • Lancement : Double-cliquez simplement sur le fichier .exe\n"+
+			"  • Mise à jour : Remplacez l'ancien .exe par le nouveau\n\n"+
+			"macOS & Linux :\n"+
+			"  • Installation : Ouvrez un terminal dans le dossier et lancez 'chmod +x nom_du_fichier'\n"+
+			"  • Lancement : Via le terminal avec './nom_du_fichier'\n"+
+			"  • Mise à jour : Remplacez le fichier et refaites le 'chmod +x'",
+	)
+	accordions.Add(section1)
+
+	// Section 2: Migration depuis V1 (Python)
+	section2 := createHelpSection(
+		"🔄 Migration depuis V1 (Python)",
+		"Si vous venez de l'ancienne version Python, vous pouvez récupérer toutes vos données :\n\n"+
+			"1. Localisez votre ancien fichier 'clefs.db'\n"+
+			"2. Dans cette application, allez dans 'Configuration' > 'Importer depuis V1'\n"+
+			"3. Sélectionnez votre ancien fichier 'clefs.db'\n"+
+			"4. Validez l'importation\n\n"+
+			"⚠️ Attention : Faites cette opération au tout début, car elle fusionne les données.",
+	)
+	accordions.Add(section2)
+
+	// Section 3: Démarrage Rapide
+	section3 := createHelpSection(
 		"🚀 Démarrage Rapide",
-		"Pour commencer à utiliser l'application :\n\n"+
+		"Pour configurer votre inventaire :\n\n"+
 			"1. Créez vos bâtiments (Configuration > Bâtiments)\n"+
 			"2. Ajoutez des salles/points d'accès (Configuration > Salles)\n"+
 			"3. Enregistrez vos clés (Configuration > Clés)\n"+
 			"4. Ajoutez des emprunteurs (Configuration > Emprunteurs)\n"+
 			"5. Commencez à gérer les emprunts depuis le Tableau de Bord",
 	)
-	accordions.Add(section1)
+	accordions.Add(section3)
 
-	// Section 2: Tableau de Bord
-	section2 := createHelpSection(
+	// Section 4: Tableau de Bord Moderne
+	section4 := createHelpSection(
 		"📊 Tableau de Bord",
-		"Le tableau de bord affiche toutes vos clés avec leur disponibilité en temps réel.\n\n"+
-			"Colonnes du tableau :\n"+
-			"  • Numéro : Identifiant de la clé\n"+
-			"  • Description : Description détaillée\n"+
-			"  • Disponibilité : Nombre disponible / Total utilisable\n"+
-			"  • Emprunté Par : Liste des emprunteurs actuels\n"+
-			"  • Actions : Boutons Emprunter/Retourner\n\n"+
-			"💡 Astuce : Les clés disponibles sont en vert, les indisponibles en rouge.",
+		"Le nouveau tableau de bord vous offre une vue synthétique :\n\n"+
+			"Statistiques (en haut) :\n"+
+			"  • Total des clés gérées\n"+
+			"  • Nombre d'emprunts actifs\n"+
+			"  • Clés disponibles immédiatement\n"+
+			"  • Nombre d'emprunteurs enregistrés\n\n"+
+			"Tableau de gestion :\n"+
+			"  • Numéro & Description : Identification de la clé\n"+
+			"  • Disponibilité : Code couleur (Vert = Dispo, Rouge = Indispo)\n"+
+			"  • Emprunteurs : Liste compacte des personnes ayant la clé\n"+
+			"  • Actions : Boutons rapides pour Emprunter ou Retourner",
 	)
-	accordions.Add(section2)
+	accordions.Add(section4)
 
-	// Section 3: Gestion des Emprunts
-	section3 := createHelpSection(
+	// Section 5: Gestion des Emprunts
+	section5 := createHelpSection(
 		"🔄 Gérer les Emprunts",
 		"Créer un emprunt :\n"+
-			"  1. Cliquez sur 'Nouvel Emprunt' ou 'Emprunter' sur une clé\n"+
+			"  1. Cliquez sur '➕ Nouvel Emprunt' (en haut) ou 'Emprunter' (dans la liste)\n"+
 			"  2. Sélectionnez la/les clé(s) à emprunter\n"+
 			"  3. Choisissez l'emprunteur\n"+
 			"  4. Confirmez l'emprunt\n\n"+
 			"Retourner une clé :\n"+
-			"  1. Cliquez sur 'Retourner' sur la clé concernée\n"+
-			"  2. Si plusieurs emprunts, sélectionnez celui à retourner\n"+
+			"  1. Cliquez sur 'Retourner' sur la ligne de la clé\n"+
+			"  2. Si plusieurs personnes ont cette clé, choisissez qui la rend\n"+
 			"  3. Confirmez le retour\n\n"+
-			"💡 Astuce : Vous pouvez emprunter plusieurs clés en même temps !",
+			"💡 Astuce : Vous pouvez sélectionner plusieurs clés d'un coup lors d'un nouvel emprunt !",
 	)
-	accordions.Add(section3)
+	accordions.Add(section5)
 
-	// Section 4: Gestion des Clés
-	section4 := createHelpSection(
+	// Section 6: Gestion des Clés
+	section6 := createHelpSection(
 		"🔑 Gestion des Clés",
 		"Accès : Configuration > Clés\n\n"+
 			"Ajouter une clé :\n"+
@@ -70,58 +99,47 @@ func createHelpView() fyne.CanvasObject {
 			"     • Numéro (ex: K001)\n"+
 			"     • Description\n"+
 			"     • Quantité totale\n"+
-			"     • Quantité en réserve (non empruntable)\n"+
+			"     • Quantité en réserve (stock de sécurité non empruntable)\n"+
 			"     • Lieu de stockage\n"+
-			"  3. Associez les salles accessibles avec cette clé\n"+
+			"  3. Associez les salles que cette clé ouvre\n"+
 			"  4. Enregistrez\n\n"+
-			"📐 Formule : Quantité disponible = Total - Réserve - Emprunts en cours",
+			"📐 Formule : Disponible = Total - Réserve - Emprunts en cours",
 	)
-	accordions.Add(section4)
+	accordions.Add(section6)
 
-	// Section 5: Sauvegardes
-	section5 := createHelpSection(
+	// Section 7: Sauvegardes
+	section7 := createHelpSection(
 		"💾 Gestion des Sauvegardes",
 		"Accès : Configuration > Gérer les Sauvegardes\n\n"+
 			"Créer une sauvegarde :\n"+
 			"  • Cliquez sur 'Créer une Nouvelle Sauvegarde'\n"+
-			"  • La sauvegarde est créée instantanément\n\n"+
+			"  • La sauvegarde est créée instantanément dans le dossier 'backups/'\n\n"+
 			"Restaurer une sauvegarde :\n"+
 			"  1. Sélectionnez la sauvegarde dans la liste\n"+
 			"  2. Cliquez sur 'Restaurer'\n"+
-			"  3. Confirmez (une sauvegarde de sécurité est créée automatiquement)\n\n"+
-			"Supprimer une sauvegarde :\n"+
-			"  1. Cliquez sur 'Supprimer' à côté de la sauvegarde\n"+
-			"  2. Confirmez la suppression\n\n"+
-			"📁 Emplacement : Les sauvegardes sont dans le dossier 'backups/'\n"+
-			"⚠️ Pensez à sauvegarder régulièrement vos données !",
+			"  3. Confirmez (une sauvegarde de sécurité est créée automatiquement avant)\n\n"+
+			"⚠️ Conseil : Copiez régulièrement le dossier 'backups/' sur un support externe.",
 	)
-	accordions.Add(section5)
+	accordions.Add(section7)
 
-	// Section 6: Rapports et PDFs
-	section6 := createHelpSection(
+	// Section 8: Rapports et PDFs
+	section8 := createHelpSection(
 		"📄 Rapports et PDFs",
 		"Emprunts en Cours :\n"+
-			"  • Vue accordéon par emprunteur\n"+
-			"  • Génération de reçus individuels ou groupés\n"+
-			"  • Export PDF automatique dans ./documents/\n\n"+
+			"  • Vue par emprunteur\n"+
+			"  • Génération de reçus de prêt (PDF)\n\n"+
 			"Rapport des Clés Sorties :\n"+
-			"  • Vue accordéon groupée par clé\n"+
-			"  • Liste des emprunteurs par clé\n"+
-			"  • Export PDF du rapport\n\n"+
+			"  • Vue par clé\n"+
+			"  • Liste de qui a quoi\n\n"+
 			"Plan de Clés :\n"+
 			"  • Vue hiérarchique : Bâtiments > Salles > Clés\n"+
 			"  • Export PDF du plan complet\n\n"+
-			"Bilan des Clés :\n"+
-			"  • Vue accordéon de toutes les clés\n"+
-			"  • Statut de disponibilité\n"+
-			"  • Liste des emprunts actifs par clé\n\n"+
-			"✅ Tous les PDFs supportent les caractères accentués !\n"+
-			"📂 Tous les PDFs sont enregistrés dans ./documents/",
+			"📂 Tous les documents sont générés automatiquement dans le dossier 'documents/'.",
 	)
-	accordions.Add(section6)
+	accordions.Add(section8)
 
-	// Section 7: Configuration
-	section7 := createHelpSection(
+	// Section 9: Configuration
+	section9 := createHelpSection(
 		"⚙️ Configuration",
 		"Le menu Configuration vous permet de gérer :\n\n"+
 			"🏢 Bâtiments : Créez et organisez vos bâtiments\n"+
@@ -129,56 +147,49 @@ func createHelpView() fyne.CanvasObject {
 			"🔑 Clés : Gérez votre inventaire de clés\n"+
 			"👤 Emprunteurs : Enregistrez les personnes autorisées\n"+
 			"💾 Sauvegardes : Gérez vos sauvegardes\n"+
+			"📥 Import V1 : Migrez vos données depuis l'ancienne version\n"+
 			"🎭 Mode Démo : Chargez des données de test\n"+
 			"🔄 Réinitialisation : Remettez à zéro la base de données",
 	)
-	accordions.Add(section7)
+	accordions.Add(section9)
 
-	// Section 8: Astuces
-	section8 := createHelpSection(
+	// Section 10: Astuces
+	section10 := createHelpSection(
 		"💡 Astuces et Bonnes Pratiques",
 		"✅ Sauvegardez régulièrement votre base de données\n"+
 			"✅ Utilisez des numéros de clés cohérents (ex: K001, K002...)\n"+
 			"✅ Définissez une réserve pour les clés critiques\n"+
-			"✅ Associez correctement les clés aux salles\n"+
 			"✅ Vérifiez les emprunts en cours régulièrement\n"+
-			"✅ Générez des reçus PDF pour garder une trace\n"+
-			"✅ Utilisez le mode démo pour vous familiariser\n\n"+
-			"⚠️ Attention :\n"+
-			"  • La réinitialisation supprime TOUTES les données\n"+
-			"  • Toujours confirmer avant de supprimer\n"+
-			"  • Les sauvegardes ne sont pas synchronisées avec Git",
-	)
-	accordions.Add(section8)
-
-	// Section 9: Navigation
-	section9 := createHelpSection(
-		"🧭 Navigation Rapide",
-		"Utilisez le menu de gauche pour naviguer rapidement :\n\n"+
-			"📊 Tableau de Bord : Vue d'ensemble et actions rapides\n"+
-			"📋 Emprunts en Cours : Gestion des emprunts actifs (accordéon par emprunteur)\n"+
-			"📄 Rapport des Clés : Export et statistiques (accordéon par clé)\n"+
-			"🗺️ Plan de Clés : Vue hiérarchique complète\n"+
-			"⚙️ Configuration : Paramètres et gestion des données\n"+
-			"À Propos : Informations sur l'application\n"+
-			"📖 Mode d'Emploi : Ce guide (vous y êtes !)",
-	)
-	accordions.Add(section9)
-
-	// Section 10: Support
-	section10 := createHelpSection(
-		"❓ Besoin d'Aide ?",
-		"Si vous rencontrez un problème :\n\n"+
-			"1. Consultez ce mode d'emploi\n"+
-			"2. Vérifiez la page 'À Propos' pour les informations\n"+
-			"3. Consultez le fichier README.md dans le dossier de l'application\n"+
-			"4. Vérifiez CHANGELOG_NOUVELLES_FONCTIONNALITES.md pour les nouveautés\n\n"+
-			"📚 Documentation complète disponible dans les fichiers :\n"+
-			"  • README.md - Guide complet\n"+
-			"  • INSTALLATION.md - Installation détaillée\n"+
-			"  • QUICK_START.md - Démarrage rapide",
+			"✅ Générez des reçus PDF pour garder une trace signée\n"+
+			"✅ Utilisez le mode démo pour vous familiariser sans risque\n\n"+
+			"⚠️ Attention : La réinitialisation est irréversible !",
 	)
 	accordions.Add(section10)
+
+	// Section 11: Navigation
+	section11 := createHelpSection(
+		"🧭 Navigation Rapide",
+		"Menu de gauche :\n\n"+
+			"📊 Tableau de Bord : Vue d'ensemble et actions rapides\n"+
+			"📋 Emprunts en Cours : Gestion des emprunts actifs\n"+
+			"📄 Rapport des Clés : État des lieux des clés sorties\n"+
+			"🗺️ Plan de Clés : Vue structurelle (Bâtiment/Salle)\n"+
+			"⚙️ Configuration : Paramètres et données\n"+
+			"À Propos : Version et crédits\n"+
+			"📖 Mode d'Emploi : Ce guide",
+	)
+	accordions.Add(section11)
+
+	// Section 12: Support
+	section12 := createHelpSection(
+		"❓ Besoin d'Aide ?",
+		"En cas de problème :\n\n"+
+			"1. Consultez ce mode d'emploi\n"+
+			"2. Vérifiez le fichier 'infos.txt' inclus\n"+
+			"3. Consultez le README.md pour les détails techniques\n"+
+			"4. Vérifiez que vous avez bien les droits d'écriture dans le dossier",
+	)
+	accordions.Add(section12)
 
 	// Assembler le contenu
 	content := container.NewVBox(

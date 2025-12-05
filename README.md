@@ -1,203 +1,85 @@
-# 🔑 Gestionnaire de Clés - Version Go
+# 🔑 Gestionnaire de Clés - V2 (Version Go)
 
-Application de gestion de clés et d'emprunts, portée de Python vers Go avec interface graphique native Fyne.
+![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)
+![Plateformes](https://img.shields.io/badge/plateformes-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
+![Licence](https://img.shields.io/badge/Licence-MIT-green.svg)
 
-## 📋 Vue d'Ensemble
+Cette nouvelle version (V2) est une **refonte complète** de l'application "Gestionnaire de Clés". L'application a été réécrite en **Go** avec le framework **Fyne** pour offrir une expérience **100% native, rapide et multi-plateforme**.
 
-Cette application permet de :
-- ✅ Gérer un inventaire de clés avec quantités et réserves
-- ✅ Suivre les emprunts et retours de clés
-- ✅ Gérer les emprunteurs, bâtiments et salles
-- ✅ Générer des reçus PDF
-- ✅ Visualiser les rapports et le plan de clés
+---
+
+## 🌟 Nouveautés de la Version 2
+
+Par rapport à l'ancienne version V1 (Python), cette version apporte des améliorations majeures :
+
+-   **Application Native Multi-plateforme** : Un seul exécutable pour Windows, macOS et Linux, sans dépendre d'un navigateur web.
+-   **Interface Moderne et Rapide** : Interface entièrement repensée, plus intuitive et réactive grâce à Fyne.
+-   **Gestion des Données Intégrée** :
+    -   **Sauvegarde & Restauration** : Créez, listez, restaurez et supprimez des sauvegardes directement depuis l'application.
+    -   **Importation Facile** : Un outil dédié permet de migrer toutes vos données de l'ancienne base de données V1 (Python) en quelques clics.
+-   **Automatisation Poussée** :
+    -   Les dossiers `documents/` (pour les PDF) et `backups/` sont créés automatiquement.
+    -   La génération de PDF se fait instantanément dans le dossier `documents`, sans boîte de dialogue.
+-   **Mode d'Emploi Intégré** : Un guide complet est disponible directement dans l'application pour vous aider à maîtriser toutes les fonctionnalités.
+-   **Aucune Installation Requise** : L'application est portable. Il suffit de la télécharger et de la lancer.
+
+---
 
 ## 🚀 Installation
 
-Les versions compilées de l'application sont disponibles sur la page **Releases** de ce dépôt.
+L'application ne nécessite aucune installation. Il suffit de la télécharger et de la placer dans un dossier dédié.
 
-1.  Rendez-vous sur la page des releases et téléchargez l'archive correspondant à votre système d'exploitation (`.zip` pour Windows/macOS, `.tar.gz` pour Linux).
-2.  Décompressez l'archive dans un **dossier dédié**.
-3.  Suivez les instructions ci-dessous.
+1.  Rendez-vous sur la page [**Releases**](https://github.com/votre-nom/votre-repo/releases) de ce projet.
+2.  Téléchargez l'archive (`.zip` ou `.tar.gz`) correspondant à votre système.
+3.  **Très important** : Extrayez l'archive et placez l'exécutable et le fichier `infos.txt` dans un **dossier qui lui sera dédié** (par exemple, `C:\Apps\Clefs` ou `~/Documents/Clefs`).
 
 ### Windows
-- Double-cliquez sur l'exécutable `.exe` pour lancer l'application.
+-   Double-cliquez simplement sur le fichier `clefs-windows-amd64.exe` pour lancer l'application. Windows Defender ou votre antivirus peut afficher une alerte car l'exécutable n'est pas signé par une autorité reconnue. Vous pouvez l'ignorer en toute sécurité.
 
 ### macOS & Linux
-1.  Ouvrez un terminal dans le dossier où vous avez extrait les fichiers.
-2.  Rendez l'exécutable exécutable avec la commande `chmod +x <nom_de_l_executable>`.
-    - *Exemple sur macOS:* `chmod +x clefs-macos-amd64`
-3.  Lancez l'application depuis votre terminal : `./<nom_de_l_executable>`.
-    - *Exemple sur macOS:* `./clefs-macos-amd64`
-
-
-## 📁 Structure du Projet
-
-```
-go_app/
-├── cmd/
-│   └── main.go              # Point d'entrée
-├── internal/
-│   ├── db/                  # Couche base de données
-│   │   ├── database.go      # Connexion SQLite
-│   │   ├── models.go        # Modèles de données
-│   │   └── queries.go       # Requêtes SQL
-│   ├── gui/                 # Interface Fyne
-│   │   ├── app.go           # Application principale
-│   │   ├── dashboard.go     # Tableau de bord
-│   │   ├── keys.go          # Gestion des clés
-│   │   ├── borrowers.go     # Gestion des emprunteurs
-│   │   ├── buildings.go     # Gestion des bâtiments
-│   │   ├── rooms.go         # Gestion des salles
-│   │   ├── loans.go         # Gestion des emprunts
-│   │   ├── keyplan.go       # Plan de clés
-│   │   └── utils.go         # Utilitaires GUI
-│   └── pdf/
-│       └── generator.go     # Génération de PDFs
-├── clefs.db                 # Base de données SQLite
-├── go.mod                   # Dépendances Go
-└── README.md               # Ce fichier
-```
-
-## 🎯 Fonctionnalités
-
-### 1. Tableau de Bord
-- Vue d'ensemble de toutes les clés avec tableau
-- Calcul automatique de la disponibilité
-- Actions rapides (Emprunter/Retourner)
-- Affichage des emprunteurs actuels
-- Interface optimisée avec colonnes fixes
-
-### 2. 🎨 Interface  
-- **Emprunts en Cours** : Vue  par emprunteur avec déploiement/repliement
-- **Clés** : Vue  par clé avec statut de disponibilité et emprunts actifs
-- **Rapport des Clés Sorties** : Vue  groupée par clé avec liste des emprunteurs
-- **Mode d'Emploi** :
-- Interface compacte et intuitive
-- Indicateurs visuels (nombre d'éléments, durées, alertes)
-
-### 3. Gestion des Clés
-- Création, modification, suppression
-- Quantités totales et réservées
-- Lieu de stockage
-- Association avec des salles (many-to-many)
-- **Vue accordéon** avec statut de disponibilité
-- **Alertes visuelles** : ⚠️ STOCK ÉPUISÉ si disponibilité = 0
-- Liste des emprunts actifs par clé
-
-### 4. Gestion des Emprunteurs
-- Nom et email
-- Historique des emprunts
-- Vue groupée par emprunteur
-
-### 5. Gestion des Bâtiments et Salles
-- Organisation hiérarchique
-- Types de salles
-- Associations avec les clés
-
-### 6. Emprunts
-- Création d'emprunts simples ou multiples
-- Vérification automatique de disponibilité
-- Retour de clés avec sélection si multiples emprunts
-- Horodatage automatique
-- Vue par emprunteur avec détails déployables
-
-### 7. Rapports
-- Emprunts actifs groupés par emprunteur
-- Plan de clés (bâtiments → salles → clés)
-- Rapport des clés sorties
-- Vue pour tous les rapports
-
-### 8. 📄 Génération de PDFs Automatique
-- **Enregistrement automatique** dans `./documents/`
-- **Pas de dialogue de sauvegarde** : génération instantanée
-- **Notifications** avec chemin complet du fichier
-- **Dossier créé au démarrage** : `./documents/` créé automatiquement
-
-#### Types de PDFs Disponibles
-- Reçus d'emprunt individuels
-- Reçus groupés par emprunteur
-- Rapport des clés sorties
-- Rapport global par emprunteur
-- Bilan des clés (stock)
-- Plan de clés complet
-
-#### Structure des Fichiers
-```
-Clefs/
-├── clefs-macos-amd64 (ou autre exécutable)
-├── clefs.db (créé automatiquement)
-├── backups/ (sauvegardes automatiques)
-└── documents/ (créé au démarrage)
-    ├── recu_emprunt_123_20251204_215538.pdf
-    └── ...
-```
-
-### 9. 💾 Gestion des Sauvegardes 
-- **Liste complète** des sauvegardes avec date, heure et taille
-- **Restauration** en un clic avec sauvegarde automatique de sécurité
-- **Suppression** des anciennes sauvegardes
-- **Création rapide** de nouvelles sauvegardes
-- **Importation depuis Python** : Migrez facilement vos données de l'ancienne version
-- Interface dédiée accessible depuis Configuration
-- Sauvegardes exportables
-
-### 10. 🚀 Releases Automatiques 
-- Le build et la publication sont entièrement automatisés via GitHub Actions.
-- Support multi-plateforme :
-  - Windows x64
-  - macOS x64 (Intel)
-  - Linux x64
-
-### 11. 📖 Mode d'Emploi Intégré
-- **Interface accordéon** avec 10 sections
-- Guide d'utilisation complet dans l'application
-- Instructions pas à pas pour chaque fonctionnalité
-- Accessible depuis le menu principal
-- Sections : Démarrage, Tableau de Bord, Emprunts, Clés, Sauvegardes, PDFs, Configuration, Astuces, Navigation, Support
-
-## 🛠️ Technologies Utilisées
-
-### Backend
-- **Go 1.21+** : Langage principal
-- **modernc.org/sqlite** : Driver SQLite pure Go (sans CGO pour Linux/macOS)
-- **Database/sql** : Interface standard Go pour SQL
-
-### Frontend
-- **Fyne v2.4.5** : Framework GUI cross-platform
-- Interface native sur chaque OS
-- Responsive et moderne
-
-### PDF
-- **github.com/phpdave11/gofpdf** : Génération de PDFs
-- Support UTF-8 avec UnicodeTranslator
-- Mise en page professionnelle
-- **Enregistrement automatique** dans `./documents/`
-- **Notifications** avec chemin complet
-
-
-## 🗄️ Base de Données
-
-### Schéma
-
-**Tables** :
-- `keys` : Clés avec quantités et stockage
-- `borrowers` : Emprunteurs
-- `buildings` : Bâtiments
-- `rooms` : Salles/Pièces
-- `loans` : Emprunts avec dates
-- `key_room_association` : Table de liaison many-to-many
-
-### Localisation
-La base de données `clefs.db` est créée automatiquement dans le répertoire de l'application.
-
+1.  Ouvrez un terminal dans le dossier où se trouve l'application.
+2.  Rendez l'exécutable exécutable avec la commande `chmod +x`.
+    -   *Exemple sur macOS* : `chmod +x clefs-macos-amd64`
+    -   *Exemple sur Linux* : `chmod +x clefs-linux-amd64`
+3.  Lancez l'application depuis le terminal.
+    -   *Exemple* : `./clefs-macos-amd64`
 
 ---
 
-**Version** : 2.1.0  
-**Date** : Décembre 2024  
-**Langage** : Go 1.21+  
-**Plateformes** : Windows, macOS, Linux (x64)
+## 🔄 Migration depuis la V1 (Python)
+
+Vous utilisiez l'ancienne version ? Vous pouvez récupérer **toutes** vos données en quelques secondes.
+
+1.  **Sauvegardez votre ancienne base de données** : Localisez le fichier `clefs.db` de votre ancienne installation (version Python) et copiez-le dans un endroit sûr.
+2.  **Lancez la nouvelle application (V2)** : Installez et ouvrez la nouvelle version en Go.
+3.  **Allez dans l'outil d'importation** : Dans le menu, allez dans `Configuration` -> `Importer depuis V1 (Python)`.
+4.  **Sélectionnez votre ancien fichier** : Cliquez sur le bouton pour choisir un fichier et sélectionnez la copie de votre ancien `clefs.db` que vous aviez sauvegardé.
+5.  **Validez** : L'application importera tous vos bâtiments, salles, clés, emprunteurs et historiques d'emprunts. Un résumé de l'importation s'affichera.
 
 ---
 
-COLLET David, cette application aurait été impossible à créer pour moi sans IA.
+## 💡 Guide d'Utilisation
+
+### Premier Lancement
+Au premier démarrage, l'application crée automatiquement les éléments suivants dans son dossier :
+-   `clefs.db` : Le nouveau fichier de base de données.
+-   `documents/` : Le dossier où tous les PDF générés seront stockés.
+-   `backups/` : Le dossier pour les sauvegardes manuelles ou automatiques.
+
+### ⚠️ Utilisation en Réseau et Multi-utilisateurs
+-   **Réseau** : Vous pouvez placer le dossier de l'application sur un partage réseau pour y accéder depuis différents postes.
+-   **Multi-accès (IMPORTANT)** : L'application **n'est pas conçue pour être ouverte par plusieurs utilisateurs en même temps**. Si deux personnes ou plus utilisent l'application simultanément sur la même base de données, cela **entraînera une corruption irréversible des données**. Assurez-vous qu'une seule instance est active à la fois.
+
+---
+
+## 👨‍💻 Pour les Développeurs
+
+### Prérequis
+-   Go 1.21+
+-   Les dépendances du framework Fyne. Consultez [la documentation de Fyne](https://developer.fyne.io/started/) pour les installer sur votre système (ex: `xorg-dev` sur Linux, `xcode` sur macOS).
+
+---
+
+## 📜 Licence
+
+Ce projet est distribué sous la **Licence MIT**.
