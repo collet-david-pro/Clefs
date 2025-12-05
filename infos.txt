@@ -1,0 +1,24 @@
+**Consigne importante pour toutes les plateformes**
+Pour assurer le bon fonctionnement de l'application, placez l'exécutable dans un dossier qui lui est propre avant de le lancer. L'application créera des fichiers (comme la base de données et les documents) dans ce même dossier.
+
+---
+
+### Windows
+Pour mettre à jour l'application :
+1. Faites une sauvegarde de votre base de données via l'application.
+2. Remplacez l'ancien fichier .exe par le nouveau.
+3. Testez l'application pour vérifier que tout fonctionne correctement.
+
+---
+
+### macOS & Linux
+Pour installer ou mettre à jour l'application :
+1. Si vous mettez à jour, faites une sauvegarde de votre base de données depuis l'ancienne version.
+2. Remplacez l'ancien exécutable par le nouveau.
+3. Ouvrez un terminal et rendez le fichier exécutable avec la commande : `chmod +x <nom_du_fichier>`
+4. Lancez l'application depuis le terminal : `./<nom_du_fichier>`
+
+---
+
+### Attention (Migration V1 -> V2)
+Pour les utilisateurs passant d'une version 1.x à une version 2.x, il est impératif d'utiliser la fonction d'importation de la base de données disponible dans la nouvelle version de l'application.

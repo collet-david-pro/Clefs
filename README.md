@@ -11,6 +11,24 @@ Cette application permet de :
 - ✅ Générer des reçus PDF
 - ✅ Visualiser les rapports et le plan de clés
 
+## 🚀 Installation
+
+Les versions compilées de l'application sont disponibles sur la page **Releases** de ce dépôt.
+
+1.  Rendez-vous sur la page des releases et téléchargez l'archive correspondant à votre système d'exploitation (`.zip` pour Windows/macOS, `.tar.gz` pour Linux).
+2.  Décompressez l'archive dans un **dossier dédié**.
+3.  Suivez les instructions ci-dessous.
+
+### Windows
+- Double-cliquez sur l'exécutable `.exe` pour lancer l'application.
+
+### macOS & Linux
+1.  Ouvrez un terminal dans le dossier où vous avez extrait les fichiers.
+2.  Rendez l'exécutable exécutable avec la commande `chmod +x <nom_de_l_executable>`.
+    - *Exemple sur macOS:* `chmod +x clefs-macos-amd64`
+3.  Lancez l'application depuis votre terminal : `./<nom_de_l_executable>`.
+    - *Exemple sur macOS:* `./clefs-macos-amd64`
+
 
 ## 📁 Structure du Projet
 
@@ -32,7 +50,6 @@ go_app/
 │   │   ├── rooms.go         # Gestion des salles
 │   │   ├── loans.go         # Gestion des emprunts
 │   │   ├── keyplan.go       # Plan de clés
-│   │   ├── reports.go       # Rapports
 │   │   └── utils.go         # Utilitaires GUI
 │   └── pdf/
 │       └── generator.go     # Génération de PDFs
@@ -107,13 +124,11 @@ go_app/
 #### Structure des Fichiers
 ```
 Clefs/
-├── clefs.exe (ou clefs)
+├── clefs-macos-amd64 (ou autre exécutable)
 ├── clefs.db (créé automatiquement)
 ├── backups/ (sauvegardes automatiques)
 └── documents/ (créé au démarrage)
     ├── recu_emprunt_123_20251204_215538.pdf
-    ├── rapport_cles_sorties_20251204_220015.pdf
-    ├── rapport_global_emprunts_20251204_220130.pdf
     └── ...
 ```
 
@@ -127,9 +142,11 @@ Clefs/
 - Sauvegardes exportables
 
 ### 10. 🚀 Releases Automatiques 
-- Support actuel :
-  - Windows x64 (compatible x86)
-  - **macOS** : Support en cours de développement, disponible prochainement
+- Le build et la publication sont entièrement automatisés via GitHub Actions.
+- Support multi-plateforme :
+  - Windows x64
+  - macOS x64 (Intel)
+  - Linux x64
 
 ### 11. 📖 Mode d'Emploi Intégré
 - **Interface accordéon** avec 10 sections
@@ -142,7 +159,7 @@ Clefs/
 
 ### Backend
 - **Go 1.21+** : Langage principal
-- **modernc.org/sqlite** : Driver SQLite pure Go (sans CGO)
+- **modernc.org/sqlite** : Driver SQLite pure Go (sans CGO pour Linux/macOS)
 - **Database/sql** : Interface standard Go pour SQL
 
 ### Frontend
@@ -179,7 +196,7 @@ La base de données `clefs.db` est créée automatiquement dans le répertoire d
 **Version** : 2.1.0  
 **Date** : Décembre 2024  
 **Langage** : Go 1.21+  
-**Plateformes** : Windows x64 (macOS disponible prochainement)
+**Plateformes** : Windows, macOS, Linux (x64)
 
 ---
 

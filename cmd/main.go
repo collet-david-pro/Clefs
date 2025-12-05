@@ -1,6 +1,7 @@
 package main
 
 import (
+	"clefs/internal/db"
 	"clefs/internal/gui"
 	"clefs/internal/pdf"
 	"log"
@@ -20,6 +21,13 @@ func main() {
 		log.Printf("Avertissement: Impossible de créer le dossier documents: %v", err)
 	} else {
 		log.Printf("Dossier documents prêt")
+	}
+
+	// Créer le dossier backups au démarrage
+	if err := db.CreateBackupDirectory(dbPath); err != nil {
+		log.Printf("Avertissement: Impossible de créer le dossier backups: %v", err)
+	} else {
+		log.Printf("Dossier backups prêt")
 	}
 
 	// Initialiser l'application

@@ -42,3 +42,5 @@ go.work
 # Logs
 *.log
 
+# Build scripts
+compilationmacos.sh

@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and Release
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -19,7 +19,25 @@ jobs:
           - os: windows-latest
             goos: windows
             goarch: amd64
-            output: clefs-windows-amd64.exe
+            output_name: clefs-windows-amd64.exe
+            archive_name: clefs-windows-amd64.zip
+            cgo_enabled: "1"
+
+          # macOS x64 (Intel)
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            output_name: clefs-macos-amd64
+            archive_name: clefs-macos-amd64.zip
+            cgo_enabled: "1"
+
+          # Linux x64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            output_name: clefs-linux-amd64
+            archive_name: clefs-linux-amd64.tar.gz
+            cgo_enabled: "0"
 
     steps:
       - name: Checkout code
@@ -30,31 +48,59 @@ jobs:
         with:
           go-version: '1.21'
 
-
       - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          # Windows dependencies
-          choco install mingw -y
+        if: matrix.goos == 'windows'
+        run: choco install mingw -y
           
-      - name: Get dependencies
+      - name: Get Go dependencies
         run: go mod download
 
+      # --- Windows Build ---
       - name: Build (Windows)
         if: matrix.goos == 'windows'
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 1
+          CGO_ENABLED: ${{ matrix.cgo_enabled }}
         run: |
-          go build -ldflags="-s -w -H windowsgui" -o ${{ matrix.output }} ./cmd/main.go
-
-      - name: Upload artifact (Windows)
+          go build -ldflags="-s -w -H windowsgui" -o ${{ matrix.output_name }} ./cmd/main.go
+      
+      - name: Package (Windows)
         if: matrix.goos == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path ${{ matrix.output_name }}, infos.txt -DestinationPath ${{ matrix.archive_name }}
+
+      # --- macOS Build ---
+      - name: Build (macOS)
+        if: matrix.goos == 'darwin'
+        env:
+          CGO_ENABLED: ${{ matrix.cgo_enabled }}
+        run: |
+          go build -ldflags="-s -w" -o ${{ matrix.output_name }} ./cmd/main.go
+
+      - name: Package (macOS)
+        if: matrix.goos == 'darwin'
+        run: |
+          zip "${{ matrix.archive_name }}" "${{ matrix.output_name }}" "infos.txt"
+
+      # --- Linux Build ---
+      - name: Build (Linux)
+        if: matrix.goos == 'linux'
+        env:
+          CGO_ENABLED: ${{ matrix.cgo_enabled }}
+        run: |
+          go build -ldflags="-s -w" -o ${{ matrix.output_name }} ./cmd/main.go
+      
+      - name: Package (Linux)
+        if: matrix.goos == 'linux'
+        run: |
+          tar -czvf ${{ matrix.archive_name }} ${{ matrix.output_name }} infos.txt
+
+      # --- Upload Artifact ---
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.goos }}-${{ matrix.goarch }}
-          path: ${{ matrix.output }}
+          name: build-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ matrix.archive_name }}
 
   release:
     name: Create Release
@@ -75,8 +121,8 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          # Copier les exécutables Windows
-          find artifacts -name "*.exe" -exec cp {} release-files/ \;
+          find artifacts -name "*.zip" -exec cp -r {} release-files/ \;
+          find artifacts -name "*.tar.gz" -exec cp -r {} release-files/ \;
           ls -lh release-files/
 
       - name: Get version from tag
@@ -91,61 +137,40 @@ jobs:
           
           ## 📦 Fichiers disponibles
           
+          ### Windows (64-bit)
+          - **clefs-windows-amd64.zip**: Archive contenant l'exécutable `clefs-windows-amd64.exe`.
+          
+          ### macOS (Intel 64-bit)
+          - **clefs-macos-amd64.zip**: Archive contenant l'exécutable `clefs-macos-amd64`.
+          
+          ### Linux (64-bit)
+          - **clefs-linux-amd64.tar.gz**: Archive contenant l'exécutable `clefs-linux-amd64`.
+          
+          ## 🚀 Installation & Utilisation
+          
+          **Important**: Avant le premier lancement, placez l'exécutable dans un dossier dédié et consultez `infos.txt`.
+          
           ### Windows
-          - **clefs-windows-amd64.exe** - Windows 64-bit
+          1. Téléchargez et décompressez `clefs-windows-amd64.zip`.
+          2. Double-cliquez sur `clefs-windows-amd64.exe` pour lancer.
           
-          ### macOS
-          ⚠️ **Les versions macOS seront disponibles prochainement**
-          
-          ## 🚀 Installation
-          
-          ### Windows
-          1. Téléchargez `clefs-windows-amd64.exe`
-          2. Double-cliquez sur l'exécutable pour lancer l'application
-          3. L'application se lance sans fenêtre de terminal
-          
-          **Note** : La base de données `clefs.db` et le dossier `documents/` seront créés automatiquement dans le même dossier que l'application lors du premier lancement.
-          
-          ## ✨ Nouvelles Fonctionnalités
-          
-          ### Interface Accordéon Complète
-          - **Emprunts en Cours** : Vue accordéon par emprunteur avec déploiement/repliement
-          - **Clés** : Vue accordéon par clé avec statut de disponibilité et emprunts actifs
-          - **Rapport des Clés Sorties** : Vue accordéon groupée par clé avec liste des emprunteurs
-          - **Mode d'Emploi** : 10 sections avec accordéons pour une navigation facile
-          
-          ### Système PDF Automatique
-          - **Génération automatique** : Les PDFs sont enregistrés directement dans `./documents/`
-          - **Pas de dialogue** : Plus besoin de choisir où enregistrer, tout est automatique
-          - **Notifications** : Affichage du chemin complet du fichier généré
-          - **Support UTF-8** : Gestion parfaite des accents et caractères spéciaux
-          - **Dossier créé au démarrage** : Le dossier `documents/` est créé automatiquement
-          
-          ### Types de PDFs Disponibles
-          - Reçus d'emprunt individuels
-          - Reçus groupés par emprunteur
-          - Rapport des clés sorties
-          - Rapport global par emprunteur
-          - Bilan des clés (stock)
-          - Plan de clés complet
-          
-          ## 🐛 Correctifs
-          
-          - **Correction du bug de closure** : Les boutons "Générer PDF" fonctionnent correctement pour chaque emprunteur
-          - **Amélioration de l'UX** : Interface plus compacte et intuitive avec accordéons
-          - **Encodage UTF-8** : Tous les PDFs gèrent correctement les caractères spéciaux
+          ### macOS & Linux
+          1. Téléchargez et décompressez l'archive (`.zip` ou `.tar.gz`).
+          2. Ouvrez un terminal dans le dossier.
+          3. Rendez l'exécutable exécutable. Par exemple sur macOS : `chmod +x clefs-macos-amd64`
+          4. Lancez-le depuis le terminal. Par exemple sur macOS : `./clefs-macos-amd64`
           
           ## 📂 Structure des Fichiers
           
+          Après le premier lancement, votre dossier ressemblera à ceci :
+          
           ```
-          Clefs/
-          ├── clefs.exe (ou clefs-windows-amd64.exe)
+          MonDossierClefs/
+          ├── clefs-macos-amd64 (ou autre exécutable)
+          ├── infos.txt
           ├── clefs.db (créé automatiquement)
           ├── backups/ (sauvegardes automatiques)
           └── documents/ (PDFs générés)
-              ├── recu_emprunt_*.pdf
-              ├── rapport_cles_sorties_*.pdf
-              └── ...
           ```
           
           EOF
