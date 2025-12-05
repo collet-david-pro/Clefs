@@ -135,7 +135,7 @@ func (a *App) setContent(content fyne.CanvasObject) {
 
 // showDashboard affiche le tableau de bord
 func (a *App) showDashboard() {
-	content := createDashboard(a)
+	content := createModernDashboard(a)
 	a.setContent(content)
 }
 

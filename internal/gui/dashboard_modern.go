@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -47,15 +48,23 @@ func createModernDashboard(app *App) fyne.CanvasObject {
 	keysTable := createSimpleKeysTable(keys, app)
 
 	// Layout principal simplifié
-	content := container.NewVBox(
+	topContent := container.NewVBox(
 		container.NewPadded(header),
 		widget.NewSeparator(),
 		container.NewPadded(statsCards),
 		widget.NewSeparator(),
-		container.NewPadded(keysTable),
 	)
 
-	return container.NewScroll(content)
+	// Utiliser un Border layout pour que le tableau prenne tout l'espace restant
+	content := container.NewBorder(
+		topContent,                     // Haut
+		nil,                            // Bas
+		nil,                            // Gauche
+		nil,                            // Droite
+		container.NewPadded(keysTable), // Centre (le tableau)
+	)
+
+	return content
 }
 
 // getStatistics récupère les statistiques pour le dashboard
@@ -182,53 +191,59 @@ func createSimpleKeysTable(keys []db.KeyWithAvailability, app *App) fyne.CanvasO
 					cellContainer.Add(container.NewCenter(availLabel))
 
 				case 3:
-					// Emprunteurs - Affichage optimisé sur une ligne
-					borrowersText := "--"
-					if len(key.BorrowerNames) > 0 {
-						if len(key.BorrowerNames) <= 3 {
-							// 1-3 emprunteurs : affichage avec séparateurs
-							borrowersText = ""
-							for i, name := range key.BorrowerNames {
-								if i > 0 {
-									borrowersText += " | "
-								}
-								borrowersText += name
-							}
-						} else {
-							// 4+ emprunteurs : affichage compact
-							borrowersText = fmt.Sprintf("%s, %s et %d autre(s)",
-								key.BorrowerNames[0],
-								key.BorrowerNames[1],
-								len(key.BorrowerNames)-2)
-						}
+					// Emprunteurs - Affichage du nombre uniquement
+					count := len(key.BorrowerNames)
+					var text string
+
+					if count == 0 {
+						text = "--"
+					} else if count == 1 {
+						text = "1 emprunt"
+					} else {
+						text = fmt.Sprintf("%d emprunts", count)
 					}
-					label := widget.NewLabel(borrowersText)
-					label.Wrapping = fyne.TextWrapWord
+
+					label := widget.NewLabel(text)
+					label.Alignment = fyne.TextAlignCenter
 					cellContainer.Add(label)
 
 				case 4:
-					// Actions avec icônes
-					actions := container.NewHBox()
+					// Actions avec positions fixes
+					// On utilise une grille à 2 colonnes pour garantir que les boutons
+					// restent à la même place (gauche pour Emprunter, droite pour Retourner)
 
+					var borrowObj fyne.CanvasObject
 					if key.AvailableCount > 0 {
 						borrowBtn := widget.NewButton("Emprunter", func() {
 							k := key
 							showNewLoanDialogWithKey(app, k.ID)
 						})
 						borrowBtn.Importance = widget.HighImportance
-						actions.Add(borrowBtn)
+						borrowObj = borrowBtn
+					} else {
+						// Espace vide pour maintenir l'alignement
+						borrowObj = layout.NewSpacer()
 					}
 
+					var returnObj fyne.CanvasObject
 					if key.LoanedCount > 0 {
 						returnBtn := widget.NewButton("Retourner", func() {
 							k := key
 							showReturnDialog(app, k.ID)
 						})
 						returnBtn.Importance = widget.MediumImportance
-						actions.Add(returnBtn)
+						returnObj = returnBtn
+					} else {
+						// Espace vide pour maintenir l'alignement
+						returnObj = layout.NewSpacer()
 					}
 
-					cellContainer.Add(container.NewCenter(actions))
+					// Conteneur grille 2 colonnes
+					actions := container.NewGridWithColumns(2, borrowObj, returnObj)
+
+					// On centre le tout, mais avec une largeur fixe suffisante si possible
+					// ou on laisse le Grid gérer l'espace
+					cellContainer.Add(actions)
 				}
 			}
 		},

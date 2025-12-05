@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
@@ -45,9 +46,8 @@ func getDBPath() string {
 	// Vérifier si on est en mode développement (go run)
 	exePath, err := os.Executable()
 	if err == nil {
-		exeDir := filepath.Dir(exePath)
-		// Si le chemin contient "go-build", on est en mode go run
-		if filepath.Base(filepath.Dir(exeDir)) == "go-build" || filepath.Base(exeDir) == "exe" {
+		// Si le chemin contient "go-build" ou est dans un dossier temporaire, on est probablement en mode go run
+		if strings.Contains(exePath, "go-build") || strings.Contains(exePath, "/var/folders/") || strings.Contains(exePath, "AppData\\Local\\Temp") {
 			// Utiliser le répertoire courant
 			cwd, err := os.Getwd()
 			if err == nil {
@@ -55,7 +55,7 @@ func getDBPath() string {
 			}
 		}
 		// Sinon, utiliser le répertoire de l'exécutable (mode production)
-		return filepath.Join(exeDir, "clefs.db")
+		return filepath.Join(filepath.Dir(exePath), "clefs.db")
 	}
 
 	// Fallback: utiliser le répertoire courant

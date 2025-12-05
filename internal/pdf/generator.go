@@ -3,6 +3,8 @@ package pdf
 import (
 	"bytes"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"clefs/internal/db"
@@ -147,64 +149,98 @@ func GenerateBorrowerReceipt(borrower *db.Borrower, loans []db.LoanWithDetails) 
 	return buf.Bytes(), nil
 }
 
-// GenerateKeyPlanPDF génère un PDF du plan de clés
-func GenerateKeyPlanPDF(buildings map[int]db.Building) ([]byte, error) {
+// GenerateKeyPlanPDF génère un PDF du plan de clés (Compact et Trié)
+func GenerateKeyPlanPDF(buildingsMap map[int]db.Building) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 	tr := pdf.UnicodeTranslatorFromDescriptor("")
 
 	// Titre
-	pdf.SetFont("Arial", "B", 18)
+	pdf.SetFont("Arial", "B", 16)
 	pdf.Cell(0, 10, tr("Plan de Clés"))
-	pdf.Ln(15)
+	pdf.Ln(10)
 
-	pdf.SetFont("Arial", "", 10)
+	pdf.SetFont("Arial", "", 9)
 	pdf.Cell(0, 6, tr(fmt.Sprintf("Généré le %s", time.Now().Format("02/01/2006 à 15:04"))))
-	pdf.Ln(12)
+	pdf.Ln(10)
+
+	// Convertir la map en slice pour le tri
+	var buildings []db.Building
+	for _, b := range buildingsMap {
+		buildings = append(buildings, b)
+	}
+
+	// Trier les bâtiments par nom
+	sort.Slice(buildings, func(i, j int) bool {
+		return strings.ToLower(buildings[i].Name) < strings.ToLower(buildings[j].Name)
+	})
 
 	// Pour chaque bâtiment
 	for _, building := range buildings {
-		if pdf.GetY() > 250 {
+		if pdf.GetY() > 260 {
 			pdf.AddPage()
 		}
 
 		// Nom du bâtiment
-		pdf.SetFont("Arial", "B", 14)
-		pdf.Cell(0, 8, tr(building.Name))
-		pdf.Ln(8)
+		pdf.SetFont("Arial", "B", 12)
+		pdf.SetFillColor(230, 230, 230)
+		pdf.CellFormat(0, 7, tr(building.Name), "1", 1, "L", true, 0, "")
 
-		// Pour chaque salle
-		for _, room := range building.Rooms {
-			if pdf.GetY() > 260 {
-				pdf.AddPage()
-			}
-
-			pdf.SetFont("Arial", "B", 11)
-			roomText := fmt.Sprintf("  %s", room.Name)
-			if room.Type != "" {
-				roomText += fmt.Sprintf(" (%s)", room.Type)
-			}
-			pdf.Cell(0, 6, tr(roomText))
+		if len(building.Rooms) == 0 {
+			pdf.SetFont("Arial", "I", 9)
+			pdf.Cell(0, 6, tr("  (Aucune salle)"))
 			pdf.Ln(6)
+		} else {
+			// Trier les salles par nom
+			sort.Slice(building.Rooms, func(i, j int) bool {
+				return strings.ToLower(building.Rooms[i].Name) < strings.ToLower(building.Rooms[j].Name)
+			})
 
-			// Clés associées
-			if len(room.Keys) > 0 {
-				pdf.SetFont("Arial", "", 10)
-				for _, key := range room.Keys {
-					pdf.Cell(10, 5, "")
-					keyText := fmt.Sprintf("• Clé %s - %s", key.Number, key.Description)
-					pdf.Cell(0, 5, tr(keyText))
-					pdf.Ln(5)
+			// Pour chaque salle
+			for _, room := range building.Rooms {
+				if pdf.GetY() > 270 {
+					pdf.AddPage()
 				}
-			} else {
-				pdf.SetFont("Arial", "I", 10)
-				pdf.Cell(10, 5, "")
-				pdf.Cell(0, 5, tr("Aucune clé associée"))
-				pdf.Ln(5)
+
+				// Salle
+				pdf.SetFont("Arial", "B", 10)
+				roomText := fmt.Sprintf("• %s", room.Name)
+				if room.Type != "" {
+					roomText += fmt.Sprintf(" (%s)", room.Type)
+				}
+				pdf.Cell(80, 6, tr(roomText))
+
+				// Clés associées (sur la même ligne si possible)
+				if len(room.Keys) > 0 {
+					// Trier les clés
+					sort.Slice(room.Keys, func(i, j int) bool {
+						return room.Keys[i].Number < room.Keys[j].Number
+					})
+
+					var keyTexts []string
+					for _, key := range room.Keys {
+						keyTexts = append(keyTexts, key.Number)
+					}
+					keysString := strings.Join(keyTexts, ", ")
+
+					pdf.SetFont("Arial", "", 9)
+					// Si la liste est trop longue, on la met à la ligne
+					if len(keysString) > 60 {
+						pdf.Ln(5)
+						pdf.Cell(10, 5, "") // Indentation
+						pdf.MultiCell(0, 5, tr("Clés : "+keysString), "", "L", false)
+					} else {
+						pdf.Cell(0, 6, tr(": "+keysString))
+						pdf.Ln(6)
+					}
+				} else {
+					pdf.SetFont("Arial", "I", 9)
+					pdf.Cell(0, 6, tr(": Aucune clé"))
+					pdf.Ln(6)
+				}
 			}
-			pdf.Ln(3)
 		}
-		pdf.Ln(5)
+		pdf.Ln(4) // Petit espace après chaque bâtiment
 	}
 
 	var buf bytes.Buffer
