@@ -1,6 +1,6 @@
 # Information importante
 
-La version actuelle est la V1x disponible dans les Releases, les versions 2.X sont en test.
+La version actuelle est la V.1.x disponible dans les Releases, les versions V.2.X sont en test.
 
 
 # Gestionnaire de Clés
