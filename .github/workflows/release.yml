@@ -37,7 +37,7 @@ jobs:
             goarch: amd64
             output_name: clefs-linux-amd64
             archive_name: clefs-linux-amd64.tar.gz
-            cgo_enabled: "0"
+            cgo_enabled: "1"
 
     steps:
       - name: Checkout code
@@ -51,6 +51,12 @@ jobs:
       - name: Install dependencies (Windows)
         if: matrix.goos == 'windows'
         run: choco install mingw -y
+      
+      - name: Install dependencies (Linux)
+        if: matrix.goos == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
           
       - name: Get Go dependencies
         run: go mod download
