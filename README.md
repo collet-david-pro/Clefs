@@ -83,3 +83,10 @@ Au premier démarrage, l'application crée automatiquement les éléments suivan
 ## 📜 Licence
 
 Ce projet est distribué sous la **Licence MIT**.
+
+
+--- 
+
+## Ajout de fonctionnalités envisagées
+
+- Import d'une base de donnée excel ou csv pour la liste des utilisateurs (avec un fichier modèle founi dans l'application)
