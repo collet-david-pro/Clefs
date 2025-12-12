@@ -1,0 +1,192 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # Windows x64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            output_name: clefs-windows-amd64.exe
+            archive_name: clefs-windows-amd64.zip
+            cgo_enabled: "1"
+
+          # macOS x64 (Intel)
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            output_name: clefs-macos-amd64
+            archive_name: clefs-macos-amd64.zip
+            cgo_enabled: "1"
+
+          # Linux x64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            output_name: clefs-linux-amd64
+            archive_name: clefs-linux-amd64.tar.gz
+            cgo_enabled: "1"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install dependencies (Windows)
+        if: matrix.goos == 'windows'
+        run: choco install mingw -y
+      
+      - name: Install dependencies (Linux)
+        if: matrix.goos == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
+          
+      - name: Get Go dependencies
+        run: go mod download
+
+      # --- Windows Build ---
+      - name: Build (Windows)
+        if: matrix.goos == 'windows'
+        env:
+          CGO_ENABLED: ${{ matrix.cgo_enabled }}
+        run: |
+          go build -ldflags="-s -w -H windowsgui" -o ${{ matrix.output_name }} ./cmd/main.go
+      
+      - name: Package (Windows)
+        if: matrix.goos == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path ${{ matrix.output_name }}, infos.txt -DestinationPath ${{ matrix.archive_name }}
+
+      # --- macOS Build ---
+      - name: Build (macOS)
+        if: matrix.goos == 'darwin'
+        env:
+          CGO_ENABLED: ${{ matrix.cgo_enabled }}
+        run: |
+          go build -ldflags="-s -w" -o ${{ matrix.output_name }} ./cmd/main.go
+
+      - name: Package (macOS)
+        if: matrix.goos == 'darwin'
+        run: |
+          zip "${{ matrix.archive_name }}" "${{ matrix.output_name }}" "infos.txt"
+
+      # --- Linux Build ---
+      - name: Build (Linux)
+        if: matrix.goos == 'linux'
+        env:
+          CGO_ENABLED: ${{ matrix.cgo_enabled }}
+        run: |
+          go build -ldflags="-s -w" -o ${{ matrix.output_name }} ./cmd/main.go
+      
+      - name: Package (Linux)
+        if: matrix.goos == 'linux'
+        run: |
+          tar -czvf ${{ matrix.archive_name }} ${{ matrix.output_name }} infos.txt
+
+      # --- Upload Artifact ---
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ matrix.archive_name }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: ls -R artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          find artifacts -name "*.zip" -exec cp -r {} release-files/ \;
+          find artifacts -name "*.tar.gz" -exec cp -r {} release-files/ \;
+          ls -lh release-files/
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          # Gestionnaire de Clés ${{ steps.get_version.outputs.VERSION }}
+          
+          ## 📦 Fichiers disponibles
+          
+          ### Windows (64-bit)
+          - **clefs-windows-amd64.zip**: Archive contenant l'exécutable `clefs-windows-amd64.exe`.
+          
+          ### macOS (Intel 64-bit)
+          - **clefs-macos-amd64.zip**: Archive contenant l'exécutable `clefs-macos-amd64`.
+          
+          ### Linux (64-bit)
+          - **clefs-linux-amd64.tar.gz**: Archive contenant l'exécutable `clefs-linux-amd64`.
+          
+          ## 🚀 Installation & Utilisation
+          
+          **Important**: Avant le premier lancement, placez l'exécutable dans un dossier dédié et consultez `infos.txt`.
+          
+          ### Windows
+          1. Téléchargez et décompressez `clefs-windows-amd64.zip`.
+          2. Double-cliquez sur `clefs-windows-amd64.exe` pour lancer.
+          
+          ### macOS & Linux
+          1. Téléchargez et décompressez l'archive (`.zip` ou `.tar.gz`).
+          2. Ouvrez un terminal dans le dossier.
+          3. Rendez l'exécutable exécutable. Par exemple sur macOS : `chmod +x clefs-macos-amd64`
+          4. Lancez-le depuis le terminal. Par exemple sur macOS : `./clefs-macos-amd64`
+          
+          ## 📂 Structure des Fichiers
+          
+          Après le premier lancement, votre dossier ressemblera à ceci :
+          
+          ```
+          MonDossierClefs/
+          ├── clefs-macos-amd64 (ou autre exécutable)
+          ├── infos.txt
+          ├── clefs.db (créé automatiquement)
+          ├── backups/ (sauvegardes automatiques)
+          └── documents/ (PDFs générés)
+          ```
+          
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: release-files/*
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
