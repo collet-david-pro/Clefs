@@ -1,8 +1,3 @@
-# Information importante
-
-La version actuelle est la V.1.x disponible dans les Releases, les versions V.2.X sont en test.
-
-
 # Gestionnaire de Clés
 
 Application de bureau simple et complète pour la gestion des clés, des stocks, des emprunts et des droits d'accès au sein d'un établissement.
