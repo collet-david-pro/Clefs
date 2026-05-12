@@ -47,30 +47,34 @@ func createWhoHasWhatView(a *App) fyne.CanvasObject {
 			accessNames[i] = r.Name
 		}
 
-		headerText := fmt.Sprintf("👤 %s — %d clé(s) : %s",
-			b.Name, len(loans), strings.Join(keyNames, ", "))
-		headerLabel := widget.NewLabelWithStyle(headerText, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-
-		accessLabel := widget.NewLabel("🚪 Accès couverts : " + strings.Join(accessNames, ", "))
-		accessLabel.Wrapping = fyne.TextWrapWord
-
-		detailBox := container.NewVBox(accessLabel)
-
+		redondanceStr := ""
 		if len(bwk.Redundancies) > 0 {
 			redNames := make([]string, len(bwk.Redundancies))
 			for i, r := range bwk.Redundancies {
 				redNames[i] = r.Name
 			}
-			redLabel := widget.NewLabelWithStyle(
-				"⚠️ Redondances : "+strings.Join(redNames, ", "),
-				fyne.TextAlignLeading, fyne.TextStyle{Bold: true},
-			)
-			detailBox.Add(redLabel)
+			redondanceStr = "  [REDONDANCE : " + strings.Join(redNames, ", ") + "]"
 		}
 
-		accordionItem := widget.NewAccordionItem(headerText, detailBox)
-		_ = headerLabel
-		list.Add(widget.NewAccordion(accordionItem))
+		headerText := fmt.Sprintf("%s — %d clé(s) : %s%s",
+			b.Name, len(loans), strings.Join(keyNames, ", "), redondanceStr)
+
+		accessLabel := widget.NewLabel("Accès couverts : " + strings.Join(accessNames, ", "))
+		accessLabel.Wrapping = fyne.TextWrapWord
+
+		detailBox := container.NewVBox(accessLabel)
+		if len(bwk.Redundancies) > 0 {
+			redNames := make([]string, len(bwk.Redundancies))
+			for i, r := range bwk.Redundancies {
+				redNames[i] = r.Name
+			}
+			detailBox.Add(widget.NewLabelWithStyle(
+				"Redondances : "+strings.Join(redNames, ", "),
+				fyne.TextAlignLeading, fyne.TextStyle{Bold: true},
+			))
+		}
+
+		list.Add(widget.NewAccordion(widget.NewAccordionItem(headerText, detailBox)))
 	}
 
 	if len(list.Objects) == 0 {
@@ -207,7 +211,7 @@ func createKeysByBuildingView(a *App) fyne.CanvasObject {
 	)
 }
 
-// createAvailableKeysView — "Clés disponibles" : stock / sorties / disponibles avec filtre.
+// createAvailableKeysView — "Clés disponibles" avec cards et filtre bâtiment.
 func createAvailableKeysView(a *App) fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Clés disponibles", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
@@ -225,20 +229,9 @@ func createAvailableKeysView(a *App) fyne.CanvasObject {
 
 	rebuild := func() {
 		listBox.Objects = nil
-
-		// En-tête
-		listBox.Add(container.NewGridWithColumns(5,
-			widget.NewLabelWithStyle("Clé", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("Description", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("Total", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("Sorties", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabelWithStyle("Disponibles", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		))
-		listBox.Add(widget.NewSeparator())
-
 		shown := 0
 		for _, k := range keys {
-			// Filtre bâtiment : vérifier si une salle liée appartient au bâtiment
+			k := k
 			if bFilter.Selected != "Tous les bâtiments" {
 				rooms, _ := db.GetRoomsForKey(k.ID)
 				found := false
@@ -257,31 +250,13 @@ func createAvailableKeysView(a *App) fyne.CanvasObject {
 					continue
 				}
 			}
-
-			availStr := fmt.Sprintf("%d", k.AvailableCount)
-			if k.AvailableCount <= 0 {
-				availStr = "0 🔴"
-			} else if k.AvailableCount == 1 {
-				availStr = "1 🟡"
-			} else {
-				availStr = fmt.Sprintf("%d ✅", k.AvailableCount)
-			}
-
-			desc := k.Description
-			if len(desc) > 35 {
-				desc = desc[:32] + "..."
-			}
-
-			listBox.Add(container.NewGridWithColumns(5,
-				widget.NewLabel(k.Number),
-				widget.NewLabel(desc),
-				widget.NewLabel(fmt.Sprintf("%d", k.QuantityTotal)),
-				widget.NewLabel(fmt.Sprintf("%d", k.LoanedCount)),
-				widget.NewLabel(availStr),
-			))
+			card := keyCard(k,
+				func() { a.showNewLoan() },
+				func() { showReturnDialog(a, k.ID) },
+			)
+			listBox.Add(card)
 			shown++
 		}
-
 		if shown == 0 {
 			listBox.Add(widget.NewLabel("Aucune clé trouvée."))
 		}

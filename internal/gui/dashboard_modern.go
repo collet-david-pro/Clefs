@@ -16,12 +16,12 @@ func createModernDashboard(app *App) fyne.CanvasObject {
 	// En-tête simplifié
 	titleLabel := widget.NewLabelWithStyle("Tableau de Bord", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
-	newLoanBtn := widget.NewButton("➕ Nouvel Emprunt", func() {
-		showNewLoanDialog(app)
+	newLoanBtn := widget.NewButton("Nouvel emprunt", func() {
+		app.showNewLoan()
 	})
 	newLoanBtn.Importance = widget.HighImportance
 
-	refreshBtn := widget.NewButton("🔄 Rafraîchir", func() {
+	refreshBtn := widget.NewButton("Rafraîchir", func() {
 		app.showDashboard()
 	})
 
@@ -226,8 +226,7 @@ func createSimpleKeysTable(keys []db.KeyWithAvailability, app *App) fyne.CanvasO
 					var borrowObj fyne.CanvasObject
 					if key.AvailableCount > 0 {
 						borrowBtn := widget.NewButton("Emprunter", func() {
-							k := key
-							showNewLoanDialogWithKey(app, k.ID)
+							app.showNewLoan()
 						})
 						borrowBtn.Importance = widget.HighImportance
 						borrowObj = borrowBtn

@@ -31,8 +31,8 @@ func createKeysView(app *App) fyne.CanvasObject {
 
 	header := container.NewBorder(nil, nil, nil, container.NewHBox(csvBtn, stockReportBtn, addBtn), title)
 
-	// Récupérer les clés
-	keys, err := db.GetAllKeys()
+	// Récupérer les clés avec disponibilité
+	keys, err := db.GetKeysWithAvailability()
 	if err != nil {
 		return container.NewVBox(
 			header,
@@ -40,7 +40,6 @@ func createKeysView(app *App) fyne.CanvasObject {
 		)
 	}
 
-	// Créer la liste des clés
 	keysList := createKeysListView(keys, app)
 
 	content := container.NewBorder(
@@ -55,144 +54,40 @@ func createKeysView(app *App) fyne.CanvasObject {
 }
 
 // createKeysListView crée la liste des clés avec accordéon
-func createKeysListView(keys []db.Key, app *App) fyne.CanvasObject {
+// createKeysListView crée la liste des clés sous forme de cards plates.
+func createKeysListView(keys []db.KeyWithAvailability, app *App) fyne.CanvasObject {
 	list := container.NewVBox()
-
-	for _, key := range keys {
-		k := key // Capture
-
-		// Créer l'accordéon pour cette clé
-		accordion := createKeyAccordion(app, k)
-		list.Add(accordion)
-		list.Add(widget.NewLabel("")) // Espacement
+	for _, k := range keys {
+		k := k
+		card := keyCard(k,
+			func() { // Emprunter — ouvre la vue prêt unifiée
+				app.showNewLoan()
+			},
+			func() { // Retour
+				showReturnDialog(app, k.ID)
+			},
+		)
+		// Boutons modifier / supprimer en pied de card
+		editBtn := widget.NewButton("Modifier", func() { showEditKeyDialog(app, k.ID) })
+		deleteBtn := widget.NewButton("Supprimer", func() {
+			app.showConfirm("Supprimer",
+				fmt.Sprintf("Supprimer la clé %s ?", k.Number),
+				func() {
+					if err := db.DeleteKey(k.ID); err != nil {
+						app.showError("Erreur", err.Error())
+						return
+					}
+					app.showKeys()
+				})
+		})
+		deleteBtn.Importance = widget.DangerImportance
+		actions := container.NewHBox(editBtn, deleteBtn)
+		list.Add(container.NewVBox(card, container.NewPadded(actions), widget.NewSeparator()))
 	}
-
+	if len(list.Objects) == 0 {
+		list.Add(widget.NewLabel("Aucune clé enregistrée."))
+	}
 	return list
-}
-
-// createKeyAccordion crée un accordéon pour une clé
-func createKeyAccordion(app *App, key db.Key) *widget.Accordion {
-	activeLoans, err := db.GetActiveLoansByKeyID(key.ID)
-	if err != nil {
-		activeLoans = []db.LoanWithDetails{}
-	}
-
-	rooms, err := db.GetRoomsForKey(key.ID)
-	if err != nil {
-		rooms = []db.Room{}
-	}
-	roomsText := "Aucune salle"
-	if len(rooms) > 0 {
-		roomsText = ""
-		for i, room := range rooms {
-			if i > 0 {
-				roomsText += ", "
-			}
-			roomsText += room.Name
-		}
-	}
-
-	// Calculer la disponibilité
-	borrowed := len(activeLoans)
-	available := key.QuantityTotal - key.QuantityReserve - borrowed
-
-	// Créer le contenu détaillé
-	detailsContent := container.NewVBox()
-
-	// Informations de la clé
-	detailsContent.Add(widget.NewLabel(fmt.Sprintf("📝 Description: %s", key.Description)))
-	detailsContent.Add(widget.NewLabel(fmt.Sprintf("📦 Quantité totale: %d | Réserve: %d", key.QuantityTotal, key.QuantityReserve)))
-	detailsContent.Add(widget.NewLabel(fmt.Sprintf("📍 Emplacement: %s", key.StorageLocation)))
-	detailsContent.Add(widget.NewLabel(fmt.Sprintf("🏢 Salles: %s", roomsText)))
-
-	// Statut de disponibilité avec couleur
-	statusText := fmt.Sprintf("✅ Disponibles: %d | 🔴 Sorties: %d", available, borrowed)
-	if available <= 0 {
-		statusText = fmt.Sprintf("⚠️ STOCK ÉPUISÉ | 🔴 Sorties: %d", borrowed)
-	}
-	detailsContent.Add(widget.NewLabelWithStyle(statusText, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
-
-	detailsContent.Add(widget.NewSeparator())
-
-	// Liste des emprunts actifs
-	if len(activeLoans) > 0 {
-		detailsContent.Add(widget.NewLabelWithStyle("📋 Emprunts en cours:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
-
-		for _, loan := range activeLoans {
-			l := loan // Capture
-
-			// Calculer la durée
-			days := int(db.GetLoanDuration(l.LoanDate))
-			durationText := fmt.Sprintf("%d jour(s)", days)
-			if days == 0 {
-				durationText = "Aujourd'hui"
-			}
-
-			loanInfo := container.NewVBox(
-				widget.NewLabel(fmt.Sprintf("   👤 %s", l.BorrowerName)),
-				widget.NewLabel(fmt.Sprintf("   📅 Depuis le: %s (%s)",
-					l.LoanDate.Format("02/01/2006"), durationText)),
-			)
-
-			returnBtn := widget.NewButton("↩️ Retourner", func() {
-				app.showConfirm("Confirmer le retour",
-					fmt.Sprintf("Confirmer le retour de la clé %s empruntée par %s?", key.Number, l.BorrowerName),
-					func() {
-						err := db.ReturnLoan(l.ID)
-						if err != nil {
-							app.showError("Erreur", fmt.Sprintf("Erreur lors du retour: %v", err))
-							return
-						}
-						app.showSuccess("Clé retournée avec succès!")
-						app.showKeys()
-					})
-			})
-			returnBtn.Importance = widget.MediumImportance
-
-			loanRow := container.NewBorder(nil, nil, nil, returnBtn, loanInfo)
-			detailsContent.Add(loanRow)
-			detailsContent.Add(widget.NewSeparator())
-		}
-	} else {
-		detailsContent.Add(widget.NewLabel("✅ Aucun emprunt actif pour cette clé"))
-		detailsContent.Add(widget.NewSeparator())
-	}
-
-	// Boutons d'action
-	editBtn := widget.NewButton("✏️ Modifier", func() {
-		showEditKeyDialog(app, key.ID)
-	})
-
-	deleteBtn := widget.NewButton("🗑️ Supprimer", func() {
-		app.showConfirm("Confirmer la suppression",
-			fmt.Sprintf("Êtes-vous sûr de vouloir supprimer la clé %s?", key.Number),
-			func() {
-				err := db.DeleteKey(key.ID)
-				if err != nil {
-					app.showError("Erreur", fmt.Sprintf("Erreur lors de la suppression: %v", err))
-					return
-				}
-				app.showSuccess("Clé supprimée avec succès!")
-				app.showKeys()
-			})
-	})
-	deleteBtn.Importance = widget.DangerImportance
-
-	actions := container.NewHBox(editBtn, deleteBtn)
-	detailsContent.Add(actions)
-
-	// Créer l'item d'accordéon
-	title := fmt.Sprintf("🔑 %s - %s", key.Number, key.Description)
-	if borrowed > 0 {
-		title = fmt.Sprintf("🔑 %s - %s (%d sortie(s))", key.Number, key.Description, borrowed)
-	}
-
-	accordionItem := widget.NewAccordionItem(title, detailsContent)
-
-	// Créer l'accordéon
-	accordion := widget.NewAccordion(accordionItem)
-
-	return accordion
 }
 
 // showAddKeyDialog affiche la boîte de dialogue pour ajouter une clé

@@ -18,7 +18,6 @@ type App struct {
 	content     *fyne.Container
 	dbPath      string
 	currentView string // vue active pour refreshCurrentView
-	currentUser string // agent connecté pour la session
 }
 
 // NewApp crée une nouvelle instance de l'application
@@ -37,80 +36,81 @@ func NewApp(dbPath string) *App {
 	}
 }
 
-// Run démarre l'application : login puis dashboard
+// Run démarre l'application directement sur le dashboard
 func (a *App) Run() {
-	showLoginDialog(a, func(username string) {
-		a.currentUser = username
-		a.showDashboard()
-		menu := a.createMenu()
-		mainContent := container.NewBorder(nil, nil, menu, nil, a.content)
-		a.window.SetContent(mainContent)
-	})
+	a.showDashboard()
 	a.window.ShowAndRun()
 }
 
 // createMenu crée la barre de navigation latérale
 func (a *App) createMenu() fyne.CanvasObject {
-	titleLabel := widget.NewLabelWithStyle("MENU", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	title := widget.NewLabelWithStyle("Gestionnaire de Clés", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	userLabel := widget.NewLabel("👤 " + a.currentUser)
-	userLabel.Alignment = fyne.TextAlignCenter
+	sep := widget.NewSeparator
 
-	// --- Navigation principale ---
-	dashboardBtn := widget.NewButton("📊 Tableau de Bord", func() { a.showDashboard() })
+	// Section Prêts
+	sectionPrets := widget.NewLabelWithStyle("Prêts", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	dashboardBtn := widget.NewButton("Tableau de bord", func() { a.showDashboard() })
 	dashboardBtn.Importance = widget.HighImportance
-
-	newLoanBtn := widget.NewButton("➕ Nouvel Emprunt", func() { showLoanWizard(a) })
+	newLoanBtn := widget.NewButton("Nouvel emprunt", func() { a.showNewLoan() })
 	newLoanBtn.Importance = widget.HighImportance
+	activeLoansBtn := widget.NewButton("Emprunts en cours", func() { a.showActiveLoans() })
+	historyBtn := widget.NewButton("Historique", func() { a.showHistory() })
 
-	activeLoansBtn := widget.NewButton("📋 Emprunts en Cours", func() { a.showActiveLoans() })
-	historyBtn := widget.NewButton("🕐 Historique", func() { a.showHistory() })
-	reportsBtn := widget.NewButton("📄 Rapport des Clés", func() { a.showLoansReport() })
-	keyPlanBtn := widget.NewButton("🗺️ Plan de Clés", func() { a.showKeyPlan() })
+	// Section Référentiels
+	sectionRef := widget.NewLabelWithStyle("Référentiels", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	keysBtn := widget.NewButton("Clés", func() { a.showKeys() })
+	borrowersBtn := widget.NewButton("Détenteurs", func() { a.showBorrowers() })
+	accessesBtn := widget.NewButton("Accès", func() { a.showAccesses() })
+	buildingsBtn := widget.NewButton("Bâtiments", func() { a.showBuildings() })
 
-	// --- Vues transversales ---
-	transversalCard := widget.NewCard("Vues rapides", "", container.NewVBox(
-		widget.NewButton("👥 Qui a quoi ?", func() { a.showWhoHasWhat() }),
-		widget.NewButton("🚪 Clé → Porte", func() { a.showKeyToAccess() }),
-		widget.NewButton("🏢 Clés par bâtiment", func() { a.showKeysByBuilding() }),
-		widget.NewButton("✅ Clés disponibles", func() { a.showAvailableKeys() }),
-		widget.NewButton("⚠️ Redondances", func() { a.showRedundancies() }),
-	))
+	// Section Consultation
+	sectionConsult := widget.NewLabelWithStyle("Consultation", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	whoBtn := widget.NewButton("Qui a quoi ?", func() { a.showWhoHasWhat() })
+	buildingViewBtn := widget.NewButton("Par bâtiment", func() { a.showKeysByBuilding() })
+	redundBtn := widget.NewButton("Redondances", func() { a.showRedundancies() })
+	keyPlanBtn := widget.NewButton("Plan de clés", func() { a.showKeyPlan() })
 
-	// --- Configuration ---
-	configCard := widget.NewCard("Configuration", "", container.NewVBox(
-		widget.NewButton("⚙️ Configuration", func() { a.showConfig() }),
-	))
-
-	// --- Aide ---
-	helpCard := widget.NewCard("", "", container.NewVBox(
-		widget.NewButton("📖 Mode d'Emploi", func() { a.showHelp() }),
-		widget.NewButton("À Propos", func() { a.showAbout() }),
-	))
-
-	quitBtn := widget.NewButton("🚪 Quitter", func() { a.quit() })
+	// Section Application
+	sectionApp := widget.NewLabelWithStyle("Application", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	configBtn := widget.NewButton("Configuration", func() { a.showConfig() })
+	helpBtn := widget.NewButton("Aide", func() { a.showHelp() })
+	quitBtn := widget.NewButton("Quitter", func() { a.quit() })
 	quitBtn.Importance = widget.DangerImportance
 
 	menuBox := container.NewVBox(
-		container.NewPadded(titleLabel),
-		container.NewPadded(userLabel),
-		widget.NewSeparator(),
+		container.NewPadded(title),
+		sep(),
 		container.NewPadded(container.NewVBox(
+			sectionPrets,
 			dashboardBtn,
 			newLoanBtn,
-			widget.NewSeparator(),
 			activeLoansBtn,
 			historyBtn,
-			reportsBtn,
+		)),
+		sep(),
+		container.NewPadded(container.NewVBox(
+			sectionRef,
+			keysBtn,
+			borrowersBtn,
+			accessesBtn,
+			buildingsBtn,
+		)),
+		sep(),
+		container.NewPadded(container.NewVBox(
+			sectionConsult,
+			whoBtn,
+			buildingViewBtn,
+			redundBtn,
 			keyPlanBtn,
 		)),
-		widget.NewSeparator(),
-		container.NewPadded(transversalCard),
-		widget.NewSeparator(),
-		container.NewPadded(configCard),
-		container.NewPadded(helpCard),
-		widget.NewSeparator(),
-		container.NewPadded(quitBtn),
+		sep(),
+		container.NewPadded(container.NewVBox(
+			sectionApp,
+			configBtn,
+			helpBtn,
+			quitBtn,
+		)),
 	)
 
 	return container.NewVScroll(menuBox)
@@ -155,6 +155,8 @@ func (a *App) refreshCurrentView() {
 		a.showAvailableKeys()
 	case "redundancies":
 		a.showRedundancies()
+	case "newLoan":
+		a.showNewLoan()
 	default:
 		a.showDashboard()
 	}
@@ -176,6 +178,10 @@ func (a *App) showBorrowers() {
 
 func (a *App) showBuildings() {
 	a.setContent(createBuildingsView(a), "buildings")
+}
+
+func (a *App) showNewLoan() {
+	a.setContent(createNewLoanView(a), "newLoan")
 }
 
 func (a *App) showAccesses() {

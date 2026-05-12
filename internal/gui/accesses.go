@@ -80,25 +80,19 @@ func createAccessesView(a *App) fyne.CanvasObject {
 					}
 				}
 				keys, _ := db.GetKeysForAccess(r.ID)
-				info := fmt.Sprintf("🚪 %s  |  🏢 %s  |  📶 %s  |  🏷 %s  |  🔑 %d clé(s)",
-					r.Name, bName, r.Floor, r.Category, len(keys))
-				row := container.NewBorder(nil, nil, nil,
-					container.NewHBox(
-						widget.NewButton("✏️", func() { showEditAccessDialog(a, r.ID) }),
-						widget.NewButton("🗑️", func() {
-							a.showConfirm("Supprimer", fmt.Sprintf("Supprimer l'accès %q ?", r.Name), func() {
-								if err := db.DeleteRoom(r.ID); err != nil {
-									a.showError("Erreur", err.Error())
-									return
-								}
-								a.showAccesses()
-							})
-						}),
-					),
-					widget.NewLabel(info),
+				card := accessCard(r, bName, len(keys),
+					func() { showEditAccessDialog(a, r.ID) },
+					func() {
+						a.showConfirm("Supprimer", fmt.Sprintf("Supprimer l'accès %q ?", r.Name), func() {
+							if err := db.DeleteRoom(r.ID); err != nil {
+								a.showError("Erreur", err.Error())
+								return
+							}
+							a.showAccesses()
+						})
+					},
 				)
-				listContainer.Add(row)
-				listContainer.Add(widget.NewSeparator())
+				listContainer.Add(card)
 			}
 		}
 		listContainer.Refresh()
