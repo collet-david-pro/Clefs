@@ -1,150 +1,206 @@
-# Gestionnaire de Clés
+# Gestionnaire de Clés — V3
 
-Application de bureau simple et complète pour la gestion des clés, des stocks, des emprunts et des droits d'accès au sein d'un établissement.
+Application de bureau native pour la gestion du parc de clés du **Collège Victor Hugo — Chauny (02300)**.
+
+Développée en Go + Fyne, elle fonctionne comme un exécutable unique Windows, sans installation ni connexion internet.
+
+---
 
 ## Fonctionnalités
 
-- **Tableau de Bord :** Vue d'ensemble en temps réel du statut de toutes les clés (disponibilité, stock, qui a emprunté quoi).
-- **Gestion des Clés :**
-    - Créez, modifiez et supprimez des types de clés.
-    - Définissez un **lieu de stockage** (ex: Accueil, Administration...).
-    - Gérez un stock fin avec :
-        - **Nombre total de clés** : Le nombre total de clés de ce type en votre possession
-        - **Nombre de clés en réserve** : Les clés placées en réserve (non disponibles au prêt)
-        - Le système calcule automatiquement les clés disponibles au prêt : `Disponibles = Total - Réserve`
-    - Interface claire avec labels explicites et textes d'aide pour éviter toute confusion
-- **Gestion des Emprunteurs :** Maintenez une liste des personnes autorisées à emprunter des clés.
-- **Gestion de la Configuration :**
-    - Définissez les **Bâtiments** de votre établissement.
-    - Créez tous les **Points d'Accès** (salles, portes, entrées, armoires...) et liez-les à un bâtiment.
-- **Liaison Clés <-> Accès :** Lors de la création ou de la modification d'une clé, cochez simplement tous les points d'accès qu'elle peut ouvrir.
-- **Plan de Clés :** Un outil puissant pour visualiser les relations entre clés et points d'accès.
-    - **Vue par Clé :** Affichez tous les lieux qu'une clé spécifique peut ouvrir.
-    - **Vue par Point d'Accès :** Affichez toutes les clés qui peuvent ouvrir un lieu spécifique.
-- **Système d'Emprunt et de Retour :**
-    - Empruntez une ou plusieurs clés pour une personne en une seule fois via une **liste à cocher** intuitive.
-    - Le système vérifie le stock utilisable et empêche l'emprunt de clés non disponibles.
-    - Lors du retour, si plusieurs personnes ont le même type de clé, une page de sélection vous permet de choisir précisément quel emprunt clôturer.
-- **Génération de PDF :**
-    - **PDF individuel** : Un bon de sortie en PDF est généré pour chaque emprunt individuel, prêt à être signé. En effet, un utilisateur peut simplement avoir besoin d'une clé en plus pour uen période donnée.
-    - **PDF groupé** : Générez un document unique avec toutes les clés empruntées par une personne, idéal pour une signature groupée.
-- **Liste des Emprunts en Cours :** Une page dédiée, **groupée par personne**, pour voir rapidement qui a quoi et pour réimprimer les bons de sortie (individuels ou groupés).
-- **Rapport Complet des Clés Sorties :**
-    - Vue d'ensemble de toutes les clés actuellement empruntées et donc en circulation.
-    - Indicateurs de durée d'emprunt avec code couleur (vert=aujourd'hui, bleu=1-6j, jaune=7-29j, rouge=30+j).
-    - Résumé groupé par emprunteur.
-    - Fonction d'impression/export PDF pour archivage ou présentation.
-- **Autonome:** Fonctionne comme une application native sur Windows, sans nécessiter de navigateur externe ni de connexion internet. L'application peut se trouver sur le réseau, mais attention, vous ne pouvez pas ouvrir l'application à plusieurs sous risque de corruption de données. 
+### Référentiel des accès
+- Enregistrement de chaque porte, portail ou zone verrouillée comme un **accès** indépendant
+- Champs : désignation, bâtiment, étage/niveau, catégorie, observations
+- Filtrage par bâtiment, étage et catégorie
 
-    **ATTENTION, LE FICHIER EST AUTO-SIGNÉ, WINDOWS OU VOTRE ANTIVIRUS VOUS DONNERA UNE ALERTE PROBABLEMENT**
+### Référentiel des clés
+- Numéro, désignation, catégorie (simple / trousseau / badge / passe)
+- Stock total, réserve, emplacement de rangement, observations
+- **Liaison clé ↔ accès** : une clé peut ouvrir plusieurs portes
+- Disponibilité calculée automatiquement : `Dispo = Total − Réserve − Sorties`
 
-## Installation (pour les utilisateurs)
+### Référentiel des détenteurs
+- Nom, statut (permanent / contractuel / intervenant / entreprise), email, téléphone
 
-L'application est disponible pour Windows.
+### Prêt par besoin — assistant en 3 étapes
+1. Sélection du détenteur
+2. Sélection des accès requis (filtrable par bâtiment / étage / catégorie) + date de retour prévue + type de prêt
+3. **Proposition automatique de la combinaison minimale de clés** couvrant les accès demandés (algorithme greedy Set Cover), modifiable avant validation
 
-1.  Allez sur la **page des Releases** de ce projet.
-2.  Téléchargez le fichier `.zip`.
-3.  Décompressez le fichier.
-4.  Mettez le dans un dossier dédié.
-5.  Lancez l'exécutable.
+### Retour de clé
+- Enregistrement de l'état constaté au retour (bon état, rayé, etc.)
 
-## Fonctionnement
+### Détection des redondances
+- Signal visuel si un détenteur possède plusieurs clés ouvrant les mêmes portes
+- Vue dédiée ⚠️ Redondances accessible depuis le menu
 
-Lors du premier lancement de l'application, un fichier de base de données nommé `clefs.db` est automatiquement créé dans le même dossier que l'exécutable. **Ce fichier est essentiel** car il stocke toutes les informations : les clés, les emprunteurs, les prêts, etc.
+### Historique complet
+- Tous les prêts (actifs + retournés) filtrables par clé, détenteur, statut, période
+- Statuts : En cours / Retourné / En retard
 
-- **Ne supprimez pas** ce fichier, sinon vous perdrez toutes vos données.
-- Si vous déplacez l'application, déplacez également le fichier `clefs.db` avec elle.
-- Pour faire une sauvegarde, il vous suffit de copier le fichier `clefs.db`.
+### Tableau de bord
+- Statistiques en temps réel : clés totales, emprunts actifs, disponibles, détenteurs
+- Alerte 🔴 prêts en retard et ⚠️ redondances d'accès visibles dès l'ouverture
+- Bouton ➕ Nouvel Emprunt en accès direct
 
-## Développement (pour les ceux qui veulent regarder le code)
+### Vues rapides
+- **Qui a quoi ?** — détenteurs avec leurs clés actuelles et accès couverts
+- **Quelle clé pour quelle porte ?** — sélectionner un accès → clés associées + disponibilité
+- **Clés par bâtiment** — toutes les clés d'un bâtiment donné
+- **Clés disponibles** — stock / sorties / dispo filtrable
 
-![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)
-![Plateformes](https://img.shields.io/badge/plateformes-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
-![Licence](https://img.shields.io/badge/Licence-MIT-green.svg)
+### Plan de clés
+- Vue bâtiment → salles → clés associées, exportable en PDF
 
-Cette nouvelle version (V2) est une **refonte complète** de l'application "Gestionnaire de Clés". L'application a été réécrite en **Go** avec le framework **Fyne** pour offrir une expérience **100% native, rapide et multi-plateforme**.
+### Génération de PDF
+- Bon de remise enrichi : clés remises, accès couverts, agent, date de retour prévue, zone signature
+- Rapport des clés sorties
+- Rapport global par détenteur
+- Bilan du stock de clés
 
----
+### Export CSV
+- Inventaire des clés, liste des détenteurs, emprunts en cours, historique filtré
+- Format UTF-8 avec BOM, séparateur `;` — compatible Excel directement
 
-## 🌟 Nouveautés de la Version 2
+### Sauvegarde / Restauration
+- Sauvegarde atomique via `VACUUM INTO` (sûre même en cours d'utilisation)
+- Restauration depuis une sauvegarde
+- Sauvegarde rapide en un clic
 
-Par rapport à l'ancienne version V1 (Python), cette version apporte des améliorations majeures :
+### Migration
+- Import depuis une base **V2** (`.db`) : validation du schéma, sauvegarde automatique avant import, résumé par table
+- Import depuis une base **V1 Python** (`.db`)
 
--   **Application Native Multi-plateforme** : Un seul exécutable pour Windows, macOS et Linux, sans dépendre d'un navigateur web.
--   **Interface Moderne et Rapide** : Interface entièrement repensée, plus intuitive et réactive grâce à Fyne.
--   **Gestion des Données Intégrée** :
-    -   **Sauvegarde & Restauration** : Créez, listez, restaurez et supprimez des sauvegardes directement depuis l'application.
-    -   **Importation Facile** : Un outil dédié permet de migrer toutes vos données de l'ancienne base de données V1 (Python) en quelques clics.
--   **Automatisation Poussée** :
-    -   Les dossiers `documents/` (pour les PDF) et `backups/` sont créés automatiquement.
-    -   La génération de PDF se fait instantanément dans le dossier `documents`, sans boîte de dialogue.
--   **Mode d'Emploi Intégré** : Un guide complet est disponible directement dans l'application pour vous aider à maîtriser toutes les fonctionnalités.
--   **Aucune Installation Requise** : L'application est portable. Il suffit de la télécharger et de la lancer.
+### Multi-postes simultanés
+- Mode WAL SQLite + `busy_timeout` : plusieurs postes peuvent consulter et saisir en même temps depuis le réseau local
+- Une seule écriture à la fois, les autres attendent jusqu'à 5 secondes automatiquement
 
 ---
 
-## 🚀 Installation
+## Installation
 
-L'application ne nécessite aucune installation. Il suffit de la télécharger et de la placer dans un dossier dédié.
+1. Aller sur la page [**Releases**](https://github.com/collet-david-pro/Clefs/releases)
+2. Télécharger `clefs-windows-amd64.zip`
+3. Décompresser dans un **dossier dédié** (ex. `C:\Clefs\`)
+4. Double-cliquer sur `clefs-windows-amd64.exe`
 
-1.  Rendez-vous sur la page [**Releases**](https://github.com/votre-nom/votre-repo/releases) de ce projet.
-2.  Téléchargez l'archive (`.zip` ou `.tar.gz`) correspondant à votre système.
-3.  **Très important** : Extrayez l'archive et placez l'exécutable et le fichier `infos.txt` dans un **dossier qui lui sera dédié** (par exemple, `C:\Apps\Clefs` ou `~/Documents/Clefs`).
-
-### Windows
--   Double-cliquez simplement sur le fichier `clefs-windows-amd64.exe` pour lancer l'application. Windows Defender ou votre antivirus peut afficher une alerte car l'exécutable n'est pas signé par une autorité reconnue. Vous pouvez l'ignorer en toute sécurité.
-
-### macOS & Linux
-1.  Ouvrez un terminal dans le dossier où se trouve l'application.
-2.  Rendez l'exécutable exécutable avec la commande `chmod +x`.
-    -   *Exemple sur macOS* : `chmod +x clefs-macos-amd64`
-    -   *Exemple sur Linux* : `chmod +x clefs-linux-amd64`
-3.  Lancez l'application depuis le terminal.
-    -   *Exemple* : `./clefs-macos-amd64`
+> **Windows Defender peut afficher une alerte** car l'exécutable n'est pas signé. Cliquer sur "Informations complémentaires" → "Exécuter quand même".
 
 ---
 
-## 🔄 Migration depuis la V1 (Python)
+## Premier lancement
 
-Vous utilisiez l'ancienne version ? Vous pouvez récupérer **toutes** vos données en quelques secondes.
+Au démarrage, l'application crée automatiquement dans son dossier :
 
-1.  **Sauvegardez votre ancienne base de données** : Localisez le fichier `clefs.db` de votre ancienne installation (version Python) et copiez-le dans un endroit sûr.
-2.  **Lancez la nouvelle application (V2)** : Installez et ouvrez la nouvelle version en Go.
-3.  **Allez dans l'outil d'importation** : Dans le menu, allez dans `Configuration` -> `Importer depuis V1 (Python)`.
-4.  **Sélectionnez votre ancien fichier** : Cliquez sur le bouton pour choisir un fichier et sélectionnez la copie de votre ancien `clefs.db` que vous aviez sauvegardé.
-5.  **Validez** : L'application importera tous vos bâtiments, salles, clés, emprunteurs et historiques d'emprunts. Un résumé de l'importation s'affichera.
+```
+MonDossierClefs/
+├── clefs-windows-amd64.exe
+├── infos.txt
+├── clefs.db          ← base de données (NE PAS SUPPRIMER)
+├── backups/          ← sauvegardes automatiques
+└── documents/        ← PDF et CSV générés
+```
 
----
-
-## 💡 Guide d'Utilisation
-
-### Premier Lancement
-Au premier démarrage, l'application crée automatiquement les éléments suivants dans son dossier :
--   `clefs.db` : Le nouveau fichier de base de données.
--   `documents/` : Le dossier où tous les PDF générés seront stockés.
--   `backups/` : Le dossier pour les sauvegardes manuelles ou automatiques.
-
-### ⚠️ Utilisation en Réseau et Multi-utilisateurs
--   **Réseau** : Vous pouvez placer le dossier de l'application sur un partage réseau pour y accéder depuis différents postes.
--   **Multi-accès (IMPORTANT)** : L'application **n'est pas conçue pour être ouverte par plusieurs utilisateurs en même temps**. Si deux personnes ou plus utilisent l'application simultanément sur la même base de données, cela **entraînera une corruption irréversible des données**. Assurez-vous qu'une seule instance est active à la fois.
+Une identification simple par nom est demandée à chaque ouverture (aucun mot de passe).
 
 ---
 
-## 👨‍💻 Pour les Développeurs
+## Utilisation en réseau
 
-### Prérequis
--   Go 1.21+
--   Les dépendances du framework Fyne. Consultez [la documentation de Fyne](https://developer.fyne.io/started/) pour les installer sur votre système (ex: `xorg-dev` sur Linux, `xcode` sur macOS).
+Placer le dossier sur un partage réseau (SMB). Plusieurs postes peuvent ouvrir l'application simultanément — SQLite en mode WAL gère les accès concurrents automatiquement.
 
 ---
 
-## 📜 Licence
+## Migration depuis V2
 
-Ce projet est distribué sous la **Licence MIT**.
+1. Configuration → **Importer depuis sauvegarde V2**
+2. Sélectionner l'ancien fichier `clefs.db`
+3. Une sauvegarde de la base actuelle est créée automatiquement avant l'import
+4. Les nouveaux champs V3 (étage, catégorie, statut détenteur) sont laissés vides et à compléter manuellement
 
+## Migration depuis V1 Python
 
---- 
+1. Configuration → **Importer depuis Version Python (V1)**
+2. Sélectionner l'ancien fichier `clefs.db`
 
-## Ajout de fonctionnalités envisagées
+---
 
-- Import d'une base de donnée excel ou csv pour la liste des utilisateurs (avec un fichier modèle founi dans l'application)
+## Pour les développeurs
+
+### Stack technique
+- **Langage :** Go 1.21
+- **Interface graphique :** Fyne v2.4.5
+- **Base de données :** SQLite (modernc.org/sqlite — pur Go, sans CGO)
+- **PDF :** gofpdf
+- **Tests :** package `testing` standard
+
+### Structure du projet
+
+```
+cmd/
+  main.go
+
+internal/
+  db/
+    database.go       Connexion SQLite, PRAGMA, migrations
+    models.go         Structs (Key, Room, Borrower, Loan...)
+    queries.go        Toutes les requêtes SQL
+    store.go          Interface Store
+    store_sqlite.go   Implémentation SQLiteStore
+    migrations.go     Migrations de schéma versionnées
+    backup.go         Sauvegarde VACUUM INTO, import Python
+    import_v2.go      Import base V2
+
+  business/
+    loan_advisor.go   Algorithme Set Cover (prêt par besoin)
+    redundancy.go     Détection redondances d'accès
+
+  export/
+    csv.go            Export CSV UTF-8 + BOM
+
+  gui/
+    app.go            Application principale, navigation, login
+    dashboard_modern.go
+    accesses.go       Gestion des accès (portes/zones)
+    keys.go           Gestion des clés
+    borrowers.go      Gestion des détenteurs
+    loans.go          Emprunts actifs, rapport
+    loan_wizard.go    Assistant de prêt en 3 étapes
+    loan_dialogs.go   Dialogues de prêt/retour rapides
+    history.go        Historique filtrable
+    views_transversal.go  Vues rapides
+    redundancy_view.go    Vue redondances
+    login.go          Identification au démarrage
+    config.go         Configuration, sauvegarde, import
+    keyplan.go        Plan de clés
+
+  pdf/
+    generator.go      Génération PDF (bons, rapports)
+    exporter.go       Sauvegarde fichier PDF
+```
+
+### Lancer en développement
+
+```bash
+go run ./cmd/main.go
+```
+
+### Lancer les tests
+
+```bash
+go test ./...
+```
+
+### Créer une release
+
+```bash
+./create-release.sh 3.0.0
+```
+
+Le script committe les modifications, crée le tag et pousse vers GitHub. Le workflow Actions compile l'exécutable Windows et publie la release automatiquement.
+
+---
+
+## Licence
+
+Distribué sous licence **MIT**.
