@@ -1,0 +1,296 @@
+package gui
+
+import (
+	"clefs/internal/db"
+	"fmt"
+	"sort"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
+)
+
+// createAccessesView crée la vue de gestion des accès (ex-salles) avec filtres enrichis.
+func createAccessesView(a *App) fyne.CanvasObject {
+	title := widget.NewLabelWithStyle("Gérer les Accès", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+	addBtn := widget.NewButton("➕ Ajouter un Accès", func() {
+		showAddAccessDialog(a)
+	})
+	addBtn.Importance = widget.HighImportance
+
+	header := container.NewBorder(nil, nil, nil, addBtn, title)
+
+	buildings, _ := db.GetAllBuildings()
+	allAccesses, _ := db.GetAllAccesses()
+
+	// --- Filtres ---
+	buildingOptions := []string{"Tous les bâtiments"}
+	for _, b := range buildings {
+		buildingOptions = append(buildingOptions, b.Name)
+	}
+
+	// Collecter étages et catégories uniques
+	floorSet := map[string]struct{}{}
+	categorySet := map[string]struct{}{}
+	for _, r := range allAccesses {
+		if r.Floor != "" {
+			floorSet[r.Floor] = struct{}{}
+		}
+		if r.Category != "" {
+			categorySet[r.Category] = struct{}{}
+		}
+	}
+	floorOptions := []string{"Tous les étages"}
+	for f := range floorSet {
+		floorOptions = append(floorOptions, f)
+	}
+	sort.Strings(floorOptions[1:])
+
+	categoryOptions := []string{"Toutes les catégories"}
+	for c := range categorySet {
+		categoryOptions = append(categoryOptions, c)
+	}
+	sort.Strings(categoryOptions[1:])
+
+	buildingFilter := widget.NewSelect(buildingOptions, nil)
+	buildingFilter.SetSelectedIndex(0)
+	floorFilter := widget.NewSelect(floorOptions, nil)
+	floorFilter.SetSelectedIndex(0)
+	categoryFilter := widget.NewSelect(categoryOptions, nil)
+	categoryFilter.SetSelectedIndex(0)
+
+	listContainer := container.NewVBox()
+
+	refresh := func() {
+		listContainer.Objects = nil
+		filtered := filterAccesses(allAccesses, buildings,
+			buildingFilter.Selected, floorFilter.Selected, categoryFilter.Selected)
+
+		if len(filtered) == 0 {
+			listContainer.Add(widget.NewLabel("Aucun accès trouvé pour ces filtres."))
+		} else {
+			for _, r := range filtered {
+				r := r
+				bName := ""
+				for _, b := range buildings {
+					if b.ID == r.BuildingID {
+						bName = b.Name
+						break
+					}
+				}
+				keys, _ := db.GetKeysForAccess(r.ID)
+				info := fmt.Sprintf("🚪 %s  |  🏢 %s  |  📶 %s  |  🏷 %s  |  🔑 %d clé(s)",
+					r.Name, bName, r.Floor, r.Category, len(keys))
+				row := container.NewBorder(nil, nil, nil,
+					container.NewHBox(
+						widget.NewButton("✏️", func() { showEditAccessDialog(a, r.ID) }),
+						widget.NewButton("🗑️", func() {
+							a.showConfirm("Supprimer", fmt.Sprintf("Supprimer l'accès %q ?", r.Name), func() {
+								if err := db.DeleteRoom(r.ID); err != nil {
+									a.showError("Erreur", err.Error())
+									return
+								}
+								a.showAccesses()
+							})
+						}),
+					),
+					widget.NewLabel(info),
+				)
+				listContainer.Add(row)
+				listContainer.Add(widget.NewSeparator())
+			}
+		}
+		listContainer.Refresh()
+	}
+
+	buildingFilter.OnChanged = func(_ string) { refresh() }
+	floorFilter.OnChanged = func(_ string) { refresh() }
+	categoryFilter.OnChanged = func(_ string) { refresh() }
+	refresh()
+
+	filters := container.NewGridWithColumns(3,
+		buildingFilter, floorFilter, categoryFilter,
+	)
+
+	return container.NewBorder(
+		container.NewVBox(header, filters, widget.NewSeparator()),
+		nil, nil, nil,
+		container.NewVScroll(listContainer),
+	)
+}
+
+func filterAccesses(accesses []db.Room, buildings []db.Building, bFilter, fFilter, cFilter string) []db.Room {
+	var result []db.Room
+	for _, r := range accesses {
+		if bFilter != "Tous les bâtiments" {
+			bName := ""
+			for _, b := range buildings {
+				if b.ID == r.BuildingID {
+					bName = b.Name
+					break
+				}
+			}
+			if bName != bFilter {
+				continue
+			}
+		}
+		if fFilter != "Tous les étages" && r.Floor != fFilter {
+			continue
+		}
+		if cFilter != "Toutes les catégories" && r.Category != cFilter {
+			continue
+		}
+		result = append(result, r)
+	}
+	return result
+}
+
+// showAddAccessDialog affiche le formulaire d'ajout d'un accès
+func showAddAccessDialog(a *App) {
+	buildings, err := db.GetAllBuildings()
+	if err != nil || len(buildings) == 0 {
+		a.showError("Erreur", "Veuillez d'abord créer au moins un bâtiment.")
+		return
+	}
+
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("ex: Salle B12, Portail nord...")
+	typeEntry := widget.NewEntry()
+	typeEntry.SetPlaceHolder("ex: Salle de classe, Local technique...")
+	floorEntry := widget.NewEntry()
+	floorEntry.SetPlaceHolder("ex: RDC, R+1, Sous-sol...")
+	categoryEntry := widget.NewEntry()
+	categoryEntry.SetPlaceHolder("ex: salle de classe, bureau, accès extérieur...")
+	notesEntry := widget.NewMultiLineEntry()
+	notesEntry.SetPlaceHolder("Accès sensible, alarme, PMR...")
+	notesEntry.SetMinRowsVisible(2)
+
+	bNames := make([]string, len(buildings))
+	for i, b := range buildings {
+		bNames[i] = b.Name
+	}
+	buildingSelect := widget.NewSelect(bNames, nil)
+	buildingSelect.SetSelectedIndex(0)
+
+	form := widget.NewForm(
+		widget.NewFormItem("Désignation *", nameEntry),
+		widget.NewFormItem("Bâtiment *", buildingSelect),
+		widget.NewFormItem("Type", typeEntry),
+		widget.NewFormItem("Étage / Niveau", floorEntry),
+		widget.NewFormItem("Catégorie", categoryEntry),
+		widget.NewFormItem("Observations", notesEntry),
+	)
+
+	var popup *widget.PopUp
+	saveBtn := widget.NewButton("Enregistrer", func() {
+		if nameEntry.Text == "" {
+			a.showError("Erreur", "La désignation est obligatoire.")
+			return
+		}
+		idx := buildingSelect.SelectedIndex()
+		if idx < 0 {
+			a.showError("Erreur", "Veuillez sélectionner un bâtiment.")
+			return
+		}
+		room := &db.Room{
+			Name:       nameEntry.Text,
+			Type:       typeEntry.Text,
+			BuildingID: buildings[idx].ID,
+			Floor:      floorEntry.Text,
+			Category:   categoryEntry.Text,
+			Notes:      notesEntry.Text,
+		}
+		if err := db.CreateRoom(room); err != nil {
+			a.showError("Erreur", err.Error())
+			return
+		}
+		a.window.Canvas().Overlays().Remove(popup)
+		a.showAccesses()
+	})
+	saveBtn.Importance = widget.HighImportance
+
+	cancelBtn := widget.NewButton("Annuler", func() { a.window.Canvas().Overlays().Remove(popup) })
+
+	content := container.NewVBox(
+		widget.NewLabelWithStyle("Nouvel Accès", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		form,
+		container.NewHBox(cancelBtn, saveBtn),
+	)
+	popup = widget.NewModalPopUp(container.NewPadded(content), a.window.Canvas())
+	popup.Show()
+}
+
+// showEditAccessDialog affiche le formulaire de modification d'un accès
+func showEditAccessDialog(a *App, roomID int) {
+	buildings, _ := db.GetAllBuildings()
+	room, err := db.GetRoomByID(roomID)
+	if err != nil {
+		a.showError("Erreur", "Accès introuvable.")
+		return
+	}
+
+	nameEntry := widget.NewEntry()
+	nameEntry.SetText(room.Name)
+	typeEntry := widget.NewEntry()
+	typeEntry.SetText(room.Type)
+	floorEntry := widget.NewEntry()
+	floorEntry.SetText(room.Floor)
+	categoryEntry := widget.NewEntry()
+	categoryEntry.SetText(room.Category)
+	notesEntry := widget.NewMultiLineEntry()
+	notesEntry.SetText(room.Notes)
+	notesEntry.SetMinRowsVisible(2)
+
+	bNames := make([]string, len(buildings))
+	selectedIdx := 0
+	for i, b := range buildings {
+		bNames[i] = b.Name
+		if b.ID == room.BuildingID {
+			selectedIdx = i
+		}
+	}
+	buildingSelect := widget.NewSelect(bNames, nil)
+	buildingSelect.SetSelectedIndex(selectedIdx)
+
+	form := widget.NewForm(
+		widget.NewFormItem("Désignation *", nameEntry),
+		widget.NewFormItem("Bâtiment *", buildingSelect),
+		widget.NewFormItem("Type", typeEntry),
+		widget.NewFormItem("Étage / Niveau", floorEntry),
+		widget.NewFormItem("Catégorie", categoryEntry),
+		widget.NewFormItem("Observations", notesEntry),
+	)
+
+	var popup *widget.PopUp
+	saveBtn := widget.NewButton("Enregistrer", func() {
+		if nameEntry.Text == "" {
+			a.showError("Erreur", "La désignation est obligatoire.")
+			return
+		}
+		idx := buildingSelect.SelectedIndex()
+		room.Name = nameEntry.Text
+		room.Type = typeEntry.Text
+		room.BuildingID = buildings[idx].ID
+		room.Floor = floorEntry.Text
+		room.Category = categoryEntry.Text
+		room.Notes = notesEntry.Text
+		if err := db.UpdateRoom(room); err != nil {
+			a.showError("Erreur", err.Error())
+			return
+		}
+		a.window.Canvas().Overlays().Remove(popup)
+		a.showAccesses()
+	})
+	saveBtn.Importance = widget.HighImportance
+
+	cancelBtn := widget.NewButton("Annuler", func() { a.window.Canvas().Overlays().Remove(popup) })
+
+	content := container.NewVBox(
+		widget.NewLabelWithStyle("Modifier l'Accès", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		form,
+		container.NewHBox(cancelBtn, saveBtn),
+	)
+	popup = widget.NewModalPopUp(container.NewPadded(content), a.window.Canvas())
+	popup.Show()
+}

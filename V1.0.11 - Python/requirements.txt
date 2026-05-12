@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+SQLAlchemy
+reportlab
+python-multipart
+jinja2
+pywebview # Pour Windows, ou [qt] pour Linux/macOS. L'extra 'cef' n'existe plus avec pywebview 2.x/3.x
