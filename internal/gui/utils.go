@@ -6,66 +6,83 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// createAboutView crée la vue À propos améliorée
 func createAboutView() fyne.CanvasObject {
-	// En-tête avec icône et titre
-	title := widget.NewLabelWithStyle("🔑 Gestionnaire de Clés", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	title.TextStyle.Bold = true
+	title := widget.NewLabelWithStyle("Gestionnaire de Clés", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	version := widget.NewLabel("Version 2.1")
+	version := widget.NewLabel("Version 3.1")
 	version.Alignment = fyne.TextAlignCenter
 
-	// Description
-	description := widget.NewLabel("Application de gestion des clés et des emprunts avec génération de reçus PDF.")
-	description.Wrapping = fyne.TextWrapWord
-	description.Alignment = fyne.TextAlignCenter
+	sep := widget.NewSeparator
 
-	// Fonctionnalités principales
-	featuresTitle := widget.NewLabelWithStyle("✨ Fonctionnalités", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	featuresList := container.NewVBox(
-		widget.NewLabel("• Gestion des clés et emprunteurs"),
-		widget.NewLabel("• Tableau de bord en temps réel"),
-		widget.NewLabel("• Génération de reçus PDF"),
-		widget.NewLabel("• Sauvegardes automatiques"),
-		widget.NewLabel("• Compatible Windows"),
+	// Présentation
+	desc := widget.NewLabel(
+		"Application de bureau native pour la gestion du parc de clés\n" +
+			"du Collège Victor Hugo — Chauny (02300).",
+	)
+	desc.Wrapping = fyne.TextWrapWord
+	desc.Alignment = fyne.TextAlignCenter
+
+	// Fonctionnalités
+	featTitle := widget.NewLabelWithStyle("Fonctionnalités principales", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	featList := container.NewVBox(
+		widget.NewLabel("  • Inventaire des clés avec liaison portes/accès"),
+		widget.NewLabel("  • Prêt par besoin : sélection des portes → trousseau minimal calculé automatiquement"),
+		widget.NewLabel("  • Bon de remise PDF généré à chaque emprunt"),
+		widget.NewLabel("  • Détection des redondances d'accès"),
+		widget.NewLabel("  • Historique complet filtrable et exportable CSV"),
+		widget.NewLabel("  • Sauvegardes atomiques, restauration en un clic"),
+		widget.NewLabel("  • Utilisation en réseau local (multi-postes simultanés)"),
 	)
 
-	// Nouveautés Version 2.1
-	newTitle := widget.NewLabelWithStyle("🆕 Version 2.1", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	newList := container.NewVBox(
-		widget.NewLabel("• Affichage optimisé des emprunteurs multiples"),
-		widget.NewLabel("• Amélioration de l'interface du tableau de bord"),
+	// Stack technique
+	techTitle := widget.NewLabelWithStyle("Technologies", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	techList := container.NewVBox(
+		widget.NewLabel("  • Langage : Go 1.21"),
+		widget.NewLabel("  • Interface graphique : Fyne v2.4.5"),
+		widget.NewLabel("  • Base de données : SQLite (mode WAL, pur Go sans CGO)"),
+		widget.NewLabel("  • PDF : gofpdf"),
+		widget.NewLabel("  • Exécutable unique, sans installation, sans connexion internet"),
 	)
 
-	// Contact
-	contactTitle := widget.NewLabelWithStyle("📧 Contact", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	contactInfo := widget.NewLabel("david.collet@ac-amiens.fr")
-	contactInfo.Alignment = fyne.TextAlignCenter
+	// Auteur
+	authorTitle := widget.NewLabelWithStyle("Développement", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	authorInfo := container.NewVBox(
+		widget.NewLabel("  COLLET David"),
+		widget.NewLabel("  Secrétaire Général"),
+		widget.NewLabel("  Collège Victor Hugo — Chauny (02300)"),
+		widget.NewLabel("  david.collet@ac-amiens.fr"),
+	)
 
-	// Copyright
-	copyright := widget.NewLabel("© 2025")
+	// Licence
+	licTitle := widget.NewLabelWithStyle("Licence", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	licText := widget.NewLabel(
+		"Distribué sous licence MIT.\n\n" +
+			"Permission est accordée, gratuitement, à toute personne obtenant\n" +
+			"une copie de ce logiciel, de l'utiliser, le copier, le modifier,\n" +
+			"le fusionner, le publier, le distribuer et/ou le vendre, sous réserve\n" +
+			"de conserver la présente notice dans toutes les copies.",
+	)
+	licText.Wrapping = fyne.TextWrapWord
+
+	copyright := widget.NewLabel("© 2025 COLLET David — MIT License")
 	copyright.Alignment = fyne.TextAlignCenter
 
-	// Assembler le contenu avec scroll
 	content := container.NewVBox(
 		title,
 		version,
-		description,
-		widget.NewSeparator(),
-		featuresTitle,
-		featuresList,
-		widget.NewSeparator(),
-		newTitle,
-		newList,
-		widget.NewSeparator(),
-		contactTitle,
-		contactInfo,
-		widget.NewSeparator(),
-		copyright,
+		sep(),
+		container.NewPadded(desc),
+		sep(),
+		container.NewPadded(container.NewVBox(featTitle, featList)),
+		sep(),
+		container.NewPadded(container.NewVBox(techTitle, techList)),
+		sep(),
+		container.NewPadded(container.NewVBox(authorTitle, authorInfo)),
+		sep(),
+		container.NewPadded(container.NewVBox(licTitle, licText)),
+		sep(),
+		container.NewPadded(copyright),
 	)
 
-	// Retourner avec scroll pour gérer le contenu long
-	return container.NewVScroll(
-		container.NewPadded(content),
-	)
+	return container.NewVScroll(container.NewPadded(content))
 }

@@ -11,28 +11,30 @@ Développée en Go + Fyne, elle fonctionne comme un exécutable unique Windows, 
 ### Référentiel des accès
 - Enregistrement de chaque porte, portail ou zone verrouillée comme un **accès** indépendant
 - Champs : désignation, bâtiment, étage/niveau, catégorie, observations
-- Filtrage par bâtiment, étage et catégorie
+- Filtrage par bâtiment
 
 ### Référentiel des clés
-- Numéro, désignation, catégorie (simple / trousseau / badge / passe)
-- Stock total, réserve, emplacement de rangement, observations
+- Numéro, désignation, catégorie, stock total, réserve, emplacement de rangement, observations
 - **Liaison clé ↔ accès** : une clé peut ouvrir plusieurs portes
 - Disponibilité calculée automatiquement : `Dispo = Total − Réserve − Sorties`
 
 ### Référentiel des détenteurs
 - Nom, statut (permanent / contractuel / intervenant / entreprise), email, téléphone
 
-### Prêt par besoin — assistant en 3 étapes
+### Prêt par besoin — vue unifiée en une page
 1. Sélection du détenteur
-2. Sélection des accès requis (filtrable par bâtiment / étage / catégorie) + date de retour prévue + type de prêt
-3. **Proposition automatique de la combinaison minimale de clés** couvrant les accès demandés (algorithme greedy Set Cover), modifiable avant validation
+2. Sélection des portes à couvrir par cases à cocher (filtrable par bâtiment)
+3. **Proposition automatique du jeu de clés minimal** couvrant les accès cochés (algorithme greedy Set Cover)
+4. Possibilité de retirer une clé suggérée ou d'en ajouter une manuellement
+5. Date de retour prévue + type de prêt (ponctuel / permanent)
+6. Validation → enregistrement en base + bon de remise PDF automatique
 
 ### Retour de clé
-- Enregistrement de l'état constaté au retour (bon état, rayé, etc.)
+- Depuis le tableau de bord ou les emprunts en cours
 
 ### Détection des redondances
 - Signal visuel si un détenteur possède plusieurs clés ouvrant les mêmes portes
-- Vue dédiée ⚠️ Redondances accessible depuis le menu
+- Vue dédiée accessible depuis le menu Consultation
 
 ### Historique complet
 - Tous les prêts (actifs + retournés) filtrables par clé, détenteur, statut, période
@@ -40,40 +42,35 @@ Développée en Go + Fyne, elle fonctionne comme un exécutable unique Windows, 
 
 ### Tableau de bord
 - Statistiques en temps réel : clés totales, emprunts actifs, disponibles, détenteurs
-- Alerte 🔴 prêts en retard et ⚠️ redondances d'accès visibles dès l'ouverture
-- Bouton ➕ Nouvel Emprunt en accès direct
+- Alertes prêts en retard et redondances d'accès visibles dès l'ouverture
+- Bouton Nouvel emprunt en accès direct
 
-### Vues rapides
+### Vues rapides (menu Consultation)
 - **Qui a quoi ?** — détenteurs avec leurs clés actuelles et accès couverts
-- **Quelle clé pour quelle porte ?** — sélectionner un accès → clés associées + disponibilité
-- **Clés par bâtiment** — toutes les clés d'un bâtiment donné
-- **Clés disponibles** — stock / sorties / dispo filtrable
-
-### Plan de clés
-- Vue bâtiment → salles → clés associées, exportable en PDF
+- **Par bâtiment** — toutes les clés d'un bâtiment donné
+- **Redondances** — détenteurs avec accès en doublon
+- **Plan de clés** — vue bâtiment → salles → clés, exportable en PDF
 
 ### Génération de PDF
-- Bon de remise enrichi : clés remises, accès couverts, agent, date de retour prévue, zone signature
+- Bon de remise : clés remises, accès couverts, agent, date de retour prévue, zone signature
 - Rapport des clés sorties
-- Rapport global par détenteur
 - Bilan du stock de clés
+- Plan de clés
 
 ### Export CSV
-- Inventaire des clés, liste des détenteurs, emprunts en cours, historique filtré
+- Inventaire des clés, liste des détenteurs, historique filtré
 - Format UTF-8 avec BOM, séparateur `;` — compatible Excel directement
 
 ### Sauvegarde / Restauration
 - Sauvegarde atomique via `VACUUM INTO` (sûre même en cours d'utilisation)
-- Restauration depuis une sauvegarde
-- Sauvegarde rapide en un clic
+- Restauration depuis une sauvegarde avec sauvegarde de sécurité automatique
 
 ### Migration
-- Import depuis une base **V2** (`.db`) : validation du schéma, sauvegarde automatique avant import, résumé par table
+- Import depuis une base **V2** Go (`.db`) : validation du schéma, sauvegarde automatique avant import
 - Import depuis une base **V1 Python** (`.db`)
 
 ### Multi-postes simultanés
 - Mode WAL SQLite + `busy_timeout` : plusieurs postes peuvent consulter et saisir en même temps depuis le réseau local
-- Une seule écriture à la fois, les autres attendent jusqu'à 5 secondes automatiquement
 
 ---
 
@@ -95,13 +92,10 @@ Au démarrage, l'application crée automatiquement dans son dossier :
 ```
 MonDossierClefs/
 ├── clefs-windows-amd64.exe
-├── infos.txt
 ├── clefs.db          ← base de données (NE PAS SUPPRIMER)
-├── backups/          ← sauvegardes automatiques
+├── backups/          ← sauvegardes
 └── documents/        ← PDF et CSV générés
 ```
-
-Une identification simple par nom est demandée à chaque ouverture (aucun mot de passe).
 
 ---
 
@@ -159,20 +153,22 @@ internal/
     csv.go            Export CSV UTF-8 + BOM
 
   gui/
-    app.go            Application principale, navigation, login
+    app.go            Application principale, navigation
     dashboard_modern.go
+    new_loan_view.go  Vue prêt unifiée (portes + trousseau)
+    loan_dialogs.go   Dialogue retour de clé
     accesses.go       Gestion des accès (portes/zones)
     keys.go           Gestion des clés
     borrowers.go      Gestion des détenteurs
-    loans.go          Emprunts actifs, rapport
-    loan_wizard.go    Assistant de prêt en 3 étapes
-    loan_dialogs.go   Dialogues de prêt/retour rapides
+    loans.go          Emprunts actifs
     history.go        Historique filtrable
-    views_transversal.go  Vues rapides
+    views_transversal.go  Vues rapides (consultation)
     redundancy_view.go    Vue redondances
-    login.go          Identification au démarrage
+    widgets.go        Composants réutilisables (cards, checkrows)
     config.go         Configuration, sauvegarde, import
     keyplan.go        Plan de clés
+    help.go           Mode d'emploi
+    theme_simple.go   Thème visuel
 
   pdf/
     generator.go      Génération PDF (bons, rapports)
@@ -185,16 +181,10 @@ internal/
 go run ./cmd/main.go
 ```
 
-### Lancer les tests
+### Créer une release Windows
 
 ```bash
-go test ./...
-```
-
-### Créer une release
-
-```bash
-./create-release.sh 3.0.0
+./create-release.sh 3.1.0
 ```
 
 Le script committe les modifications, crée le tag et pousse vers GitHub. Le workflow Actions compile l'exécutable Windows et publie la release automatiquement.
@@ -204,3 +194,5 @@ Le script committe les modifications, crée le tag et pousse vers GitHub. Le wor
 ## Licence
 
 Distribué sous licence **MIT**.
+
+Développé par **COLLET David** — Secrétaire Général, Collège Victor Hugo, Chauny (02300).

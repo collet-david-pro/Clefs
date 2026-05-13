@@ -75,6 +75,7 @@ func (a *App) createMenu() fyne.CanvasObject {
 	sectionApp := widget.NewLabelWithStyle("Application", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	configBtn := widget.NewButton("Configuration", func() { a.showConfig() })
 	helpBtn := widget.NewButton("Aide", func() { a.showHelp() })
+	aboutBtn := widget.NewButton("A propos", func() { a.showAbout() })
 	quitBtn := widget.NewButton("Quitter", func() { a.quit() })
 	quitBtn.Importance = widget.DangerImportance
 
@@ -109,6 +110,7 @@ func (a *App) createMenu() fyne.CanvasObject {
 			sectionApp,
 			configBtn,
 			helpBtn,
+			aboutBtn,
 			quitBtn,
 		)),
 	)
