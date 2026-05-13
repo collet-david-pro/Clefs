@@ -104,7 +104,7 @@ func keyCard(k db.KeyWithAvailability, onLoan func(), onReturn func()) fyne.Canv
 }
 
 // accessCheckRow retourne une ligne de checkbox stylisée pour la sélection d'accès dans le prêt.
-// Nom en gras, bâtiment·étage en sous-ligne indentée.
+// Le nom est intégré dans le widget Check pour que toute la zone soit cliquable.
 func accessCheckRow(r db.Room, bName string, checked bool, onChange func(bool)) fyne.CanvasObject {
 	sub := []string{}
 	if bName != "" {
@@ -114,16 +114,16 @@ func accessCheckRow(r db.Room, bName string, checked bool, onChange func(bool)) 
 		sub = append(sub, r.Floor)
 	}
 
-	nameLabel := widget.NewLabelWithStyle(r.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	subLabel := widget.NewLabel("    " + strings.Join(sub, " · "))
-	subLabel.TextStyle = fyne.TextStyle{Italic: true}
-
-	chk := widget.NewCheck("", onChange)
+	// Le label est mis directement dans le Check pour maximiser la hitbox
+	chk := widget.NewCheck(r.Name, onChange)
 	chk.SetChecked(checked)
 
-	textCol := container.NewVBox(nameLabel, subLabel)
-	row := container.NewBorder(nil, nil, chk, nil, textCol)
-	return container.NewVBox(row, widget.NewSeparator())
+	if len(sub) > 0 {
+		subLabel := widget.NewLabel("    " + strings.Join(sub, " · "))
+		subLabel.TextStyle = fyne.TextStyle{Italic: true}
+		return container.NewVBox(container.NewVBox(chk, subLabel), widget.NewSeparator())
+	}
+	return container.NewVBox(chk, widget.NewSeparator())
 }
 
 // loanKeyCard retourne la représentation d'une clé dans le trousseau calculé.

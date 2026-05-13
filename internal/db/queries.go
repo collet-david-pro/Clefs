@@ -2,7 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 )
 
@@ -831,7 +830,9 @@ func CheckKeyAvailability(keyID int) (bool, error) {
 	return usable > count, nil
 }
 
-// CreateMultipleLoans crée plusieurs emprunts pour un emprunteur
+// CreateMultipleLoans crée plusieurs emprunts pour un emprunteur.
+// La disponibilité est vérifiée en amont par l'interface — pas de requête imbriquée
+// dans la transaction pour éviter le deadlock avec SetMaxOpenConns(1).
 func CreateMultipleLoans(keyIDs []int, borrowerID int) error {
 	tx, err := DB.Begin()
 	if err != nil {
@@ -839,19 +840,10 @@ func CreateMultipleLoans(keyIDs []int, borrowerID int) error {
 	}
 	defer tx.Rollback()
 
+	now := time.Now()
 	for _, keyID := range keyIDs {
-		// Vérifier la disponibilité
-		available, err := CheckKeyAvailability(keyID)
-		if err != nil {
-			return err
-		}
-		if !available {
-			return fmt.Errorf("la clé %d n'est pas disponible", keyID)
-		}
-
-		// Créer l'emprunt
 		_, err = tx.Exec(`INSERT INTO loans (key_id, borrower_id, loan_date) VALUES (?, ?, ?)`,
-			keyID, borrowerID, time.Now())
+			keyID, borrowerID, now)
 		if err != nil {
 			return err
 		}

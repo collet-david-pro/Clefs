@@ -133,20 +133,20 @@ func showAddKeyDialog(app *App) {
 		}
 	}
 
-	form := container.NewVBox(
-		widget.NewLabel("Numéro de la clé:"),
+	// Champs du formulaire en haut (hauteur fixe)
+	topFields := container.NewVBox(
+		widget.NewLabel("Numéro de la clé :"),
 		numberEntry,
-		widget.NewLabel("Description:"),
+		widget.NewLabel("Description :"),
 		descEntry,
-		widget.NewLabel("Quantité totale:"),
+		widget.NewLabel("Quantité totale :"),
 		totalEntry,
-		widget.NewLabel("Quantité en réserve:"),
+		widget.NewLabel("Quantité en réserve :"),
 		reserveEntry,
-		widget.NewLabel("Emplacement de stockage:"),
+		widget.NewLabel("Emplacement de stockage :"),
 		storageEntry,
 		widget.NewSeparator(),
-		widget.NewLabel("Salles associées:"),
-		container.NewVScroll(roomsBox),
+		widget.NewLabelWithStyle("Accès associés :", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
 
 	var dialog *widget.PopUp
@@ -160,27 +160,22 @@ func showAddKeyDialog(app *App) {
 			app.showError("Erreur", "Le numéro de la clé est requis.")
 			return
 		}
-
 		total, err := strconv.Atoi(totalEntry.Text)
 		if err != nil || total < 1 {
 			app.showError("Erreur", "La quantité totale doit être un nombre positif.")
 			return
 		}
-
 		reserve, err := strconv.Atoi(reserveEntry.Text)
 		if err != nil || reserve < 0 {
 			app.showError("Erreur", "La quantité en réserve doit être un nombre positif ou zéro.")
 			return
 		}
-
-		// Récupérer les salles sélectionnées
 		var selectedRoomIDs []int
 		for roomID, checkbox := range roomCheckboxes {
 			if checkbox.Checked {
 				selectedRoomIDs = append(selectedRoomIDs, roomID)
 			}
 		}
-
 		key := &db.Key{
 			Number:          numberEntry.Text,
 			Description:     descEntry.Text,
@@ -188,29 +183,33 @@ func showAddKeyDialog(app *App) {
 			QuantityReserve: reserve,
 			StorageLocation: storageEntry.Text,
 		}
-
-		err = db.CreateKey(key, selectedRoomIDs)
-		if err != nil {
+		if err = db.CreateKey(key, selectedRoomIDs); err != nil {
 			app.showError("Erreur", fmt.Sprintf("Erreur lors de la création: %v", err))
 			return
 		}
-
 		app.window.Canvas().Overlays().Remove(dialog)
 		app.showSuccess("Clé créée avec succès!")
 		app.showKeys()
 	})
 	saveBtn.Importance = widget.HighImportance
 
-	content := container.NewVBox(
-		widget.NewLabelWithStyle("Ajouter une Clé", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewSeparator(),
-		form,
-		widget.NewSeparator(),
-		container.NewHBox(cancelBtn, saveBtn),
+	// Layout : champs en haut (fixe) + liste des accès scrollable + boutons en bas
+	content := container.NewBorder(
+		container.NewVBox(
+			widget.NewLabelWithStyle("Ajouter une Clé", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewSeparator(),
+			topFields,
+		),
+		container.NewVBox(
+			widget.NewSeparator(),
+			container.NewHBox(cancelBtn, saveBtn),
+		),
+		nil, nil,
+		container.NewVScroll(roomsBox),
 	)
 
 	dialog = widget.NewModalPopUp(content, app.window.Canvas())
-	dialog.Resize(fyne.NewSize(600, 600))
+	dialog.Resize(fyne.NewSize(600, 700))
 	dialog.Show()
 }
 
@@ -272,20 +271,19 @@ func showEditKeyDialog(app *App, keyID int) {
 		}
 	}
 
-	form := container.NewVBox(
-		widget.NewLabel("Numéro de la clé:"),
+	topFields := container.NewVBox(
+		widget.NewLabel("Numéro de la clé :"),
 		numberEntry,
-		widget.NewLabel("Description:"),
+		widget.NewLabel("Description :"),
 		descEntry,
-		widget.NewLabel("Quantité totale:"),
+		widget.NewLabel("Quantité totale :"),
 		totalEntry,
-		widget.NewLabel("Quantité en réserve:"),
+		widget.NewLabel("Quantité en réserve :"),
 		reserveEntry,
-		widget.NewLabel("Emplacement de stockage:"),
+		widget.NewLabel("Emplacement de stockage :"),
 		storageEntry,
 		widget.NewSeparator(),
-		widget.NewLabel("Salles associées:"),
-		container.NewVScroll(roomsBox),
+		widget.NewLabelWithStyle("Accès associés :", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
 
 	var dialog *widget.PopUp
@@ -299,55 +297,53 @@ func showEditKeyDialog(app *App, keyID int) {
 			app.showError("Erreur", "Le numéro de la clé est requis.")
 			return
 		}
-
 		total, err := strconv.Atoi(totalEntry.Text)
 		if err != nil || total < 1 {
 			app.showError("Erreur", "La quantité totale doit être un nombre positif.")
 			return
 		}
-
 		reserve, err := strconv.Atoi(reserveEntry.Text)
 		if err != nil || reserve < 0 {
 			app.showError("Erreur", "La quantité en réserve doit être un nombre positif ou zéro.")
 			return
 		}
-
-		// Récupérer les salles sélectionnées
 		var selectedRoomIDs []int
 		for roomID, checkbox := range roomCheckboxes {
 			if checkbox.Checked {
 				selectedRoomIDs = append(selectedRoomIDs, roomID)
 			}
 		}
-
 		key.Number = numberEntry.Text
 		key.Description = descEntry.Text
 		key.QuantityTotal = total
 		key.QuantityReserve = reserve
 		key.StorageLocation = storageEntry.Text
-
-		err = db.UpdateKey(key, selectedRoomIDs)
-		if err != nil {
+		if err = db.UpdateKey(key, selectedRoomIDs); err != nil {
 			app.showError("Erreur", fmt.Sprintf("Erreur lors de la modification: %v", err))
 			return
 		}
-
 		app.window.Canvas().Overlays().Remove(dialog)
 		app.showSuccess("Clé modifiée avec succès!")
 		app.showKeys()
 	})
 	saveBtn.Importance = widget.HighImportance
 
-	content := container.NewVBox(
-		widget.NewLabelWithStyle("Modifier la Clé", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewSeparator(),
-		form,
-		widget.NewSeparator(),
-		container.NewHBox(cancelBtn, saveBtn),
+	content := container.NewBorder(
+		container.NewVBox(
+			widget.NewLabelWithStyle("Modifier la Clé", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewSeparator(),
+			topFields,
+		),
+		container.NewVBox(
+			widget.NewSeparator(),
+			container.NewHBox(cancelBtn, saveBtn),
+		),
+		nil, nil,
+		container.NewVScroll(roomsBox),
 	)
 
 	dialog = widget.NewModalPopUp(content, app.window.Canvas())
-	dialog.Resize(fyne.NewSize(600, 600))
+	dialog.Resize(fyne.NewSize(600, 700))
 	dialog.Show()
 }
 

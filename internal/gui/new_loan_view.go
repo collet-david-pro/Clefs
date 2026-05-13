@@ -34,13 +34,23 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 	checkedAccesses := make(map[int]bool)
 	var finalKeys []db.Key
 	var suggestedKeyIDs map[int]bool
+	excludedKeyIDs := make(map[int]bool) // clés explicitement retirées — exclues du recalcul
+	manualKeyIDs := make(map[int]bool)   // clés ajoutées manuellement — toujours conservées
 
 	// --- Widgets persistants mis à jour dynamiquement ---
 	trousseauBox := container.NewVBox()
 	trousseauTitle := widget.NewLabelWithStyle("Trousseau calculé", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	alertBox := container.NewVBox()
 
-	validateBtn := widget.NewButton("Valider et imprimer le bon", nil)
+	// doValidate est défini plus bas — le bouton sera recréé avec cette fonction
+	// après que toutes les variables sont en scope.
+	// On utilise un pointeur de fonction pour éviter le problème de forward reference.
+	var doValidate func()
+	validateBtn := widget.NewButton("Valider et imprimer le bon", func() {
+		if doValidate != nil {
+			doValidate()
+		}
+	})
 	validateBtn.Importance = widget.HighImportance
 	validateBtn.Disable()
 
@@ -51,10 +61,8 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 	loanTypeSelect.SetSelected("ponctuel")
 
 	// --- Fonction de recalcul du trousseau ---
-	// Déclaré via var pour permettre la récursion dans les closures de boutons
 	var recalculate func()
 	recalculate = func() {
-		// Collecter les accès cochés
 		var accessIDs []int
 		for id, checked := range checkedAccesses {
 			if checked {
@@ -65,22 +73,55 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 
 		trousseauBox.Objects = nil
 		alertBox.Objects = nil
-		finalKeys = nil
 		suggestedKeyIDs = make(map[int]bool)
 
 		if selectedBorrowerID == 0 || len(accessIDs) == 0 {
+			finalKeys = nil
 			validateBtn.Disable()
+			validateBtn.Refresh()
 			trousseauBox.Add(widget.NewLabel("Sélectionnez un détenteur et des portes."))
 			trousseauBox.Refresh()
 			alertBox.Refresh()
 			return
 		}
 
-		// Calcul algorithme greedy
+		// Calcul greedy en excluant les clés explicitement retirées
 		candidates, _ := business.BuildAvailableKeysForAccesses(accessIDs)
-		result := business.SuggestKeys(accessIDs, candidates)
+		var filteredCandidates []db.KeyWithCoverage
+		for _, c := range candidates {
+			if !excludedKeyIDs[c.ID] {
+				filteredCandidates = append(filteredCandidates, c)
+			}
+		}
+		result := business.SuggestKeys(accessIDs, filteredCandidates)
 
-		// Alertes
+		// Construire le trousseau final :
+		// 1. clés suggérées par l'algo (hors exclues)
+		// 2. clés ajoutées manuellement (toujours conservées)
+		keySet := make(map[int]db.Key)
+		for _, k := range result.SelectedKeys {
+			keySet[k.ID] = k
+			suggestedKeyIDs[k.ID] = true
+		}
+		for id := range manualKeyIDs {
+			// Retrouver la clé dans les candidats disponibles
+			for _, c := range candidates {
+				if c.ID == id {
+					keySet[id] = c.Key
+					break
+				}
+			}
+		}
+		finalKeys = nil
+		for _, k := range keySet {
+			finalKeys = append(finalKeys, k)
+		}
+		// Tri stable par numéro
+		sort.Slice(finalKeys, func(i, j int) bool {
+			return finalKeys[i].Number < finalKeys[j].Number
+		})
+
+		// Alerte accès non couverts
 		if result.HasUncoverable {
 			names := accessIDsToNames(result.UncoverableIDs)
 			alertBox.Add(widget.NewLabelWithStyle(
@@ -89,27 +130,27 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 			))
 		}
 
-		// Redondances avec les clés déjà détenues
+		// Redondances avec les clés déjà détenues par ce détenteur
 		existingLoans, _ := db.GetActiveLoansByBorrowerID(selectedBorrowerID)
 		if len(existingLoans) > 0 {
 			accessesByKey := map[int][]db.Room{}
-			var existingKeys []db.Key
+			var allKeys []db.Key
 			for _, l := range existingLoans {
 				k, err := db.GetKeyByID(l.KeyID)
 				if err != nil {
 					continue
 				}
-				existingKeys = append(existingKeys, *k)
+				allKeys = append(allKeys, *k)
 				rooms, _ := db.GetRoomsForKey(l.KeyID)
 				accessesByKey[l.KeyID] = rooms
 			}
-			for _, k := range result.SelectedKeys {
+			for _, k := range finalKeys {
 				kc := k
 				rooms, _ := db.GetRoomsForKey(kc.ID)
-				existingKeys = append(existingKeys, kc)
+				allKeys = append(allKeys, kc)
 				accessesByKey[kc.ID] = rooms
 			}
-			redundant := business.DetectRedundancies(existingKeys, accessesByKey)
+			redundant := business.DetectRedundancies(allKeys, accessesByKey)
 			if len(redundant) > 0 {
 				rnames := make([]string, len(redundant))
 				for i, r := range redundant {
@@ -119,29 +160,22 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 			}
 		}
 
-		// Remplir le trousseau
-		finalKeys = make([]db.Key, len(result.SelectedKeys))
-		copy(finalKeys, result.SelectedKeys)
-		for _, k := range result.SelectedKeys {
-			suggestedKeyIDs[k.ID] = true
-		}
-
+		// Afficher les cards du trousseau
 		for i := range finalKeys {
 			k := finalKeys[i]
-			keyID := k.ID // capture immuable
+			keyID := k.ID
 			rooms, _ := db.GetRoomsForKey(k.ID)
 			coveredNames := make([]string, len(rooms))
 			for j, r := range rooms {
 				coveredNames[j] = r.Name
 			}
-			card := loanKeyCard(k, coveredNames, suggestedKeyIDs[k.ID], func() {
-				newKeys := make([]db.Key, 0, len(finalKeys)-1)
-				for _, fk := range finalKeys {
-					if fk.ID != keyID {
-						newKeys = append(newKeys, fk)
-					}
+			isSuggested := suggestedKeyIDs[k.ID]
+			card := loanKeyCard(k, coveredNames, isSuggested, func() {
+				// Marquer comme exclue (si suggérée) ou simplement retirer (si manuelle)
+				if suggestedKeyIDs[keyID] {
+					excludedKeyIDs[keyID] = true
 				}
-				finalKeys = newKeys
+				delete(manualKeyIDs, keyID)
 				recalculate()
 			})
 			trousseauBox.Add(card)
@@ -153,6 +187,7 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 		} else {
 			validateBtn.Enable()
 		}
+		validateBtn.Refresh()
 
 		trousseauBox.Refresh()
 		alertBox.Refresh()
@@ -200,6 +235,8 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 			}
 			row := accessCheckRow(r, bn, checkedAccesses[r.ID], func(v bool) {
 				checkedAccesses[r.ID] = v
+				// Changer les accès remet les exclusions à zéro — nouvelle situation
+				excludedKeyIDs = make(map[int]bool)
 				recalculate()
 			})
 			accessListBox.Add(row)
@@ -227,13 +264,10 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 			return
 		}
 		k := allAvailable[idx]
-		// Vérifier si déjà dans le trousseau
-		for _, fk := range finalKeys {
-			if fk.ID == k.ID {
-				return
-			}
-		}
-		finalKeys = append(finalKeys, k)
+		// Si cette clé était exclue, on lève l'exclusion
+		delete(excludedKeyIDs, k.ID)
+		// Marquer comme manuelle — sera conservée même si l'algo ne la choisit pas
+		manualKeyIDs[k.ID] = true
 		recalculate()
 	})
 
@@ -242,7 +276,7 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 	// --- Bouton valider ---
 	cancelBtn := widget.NewButton("Annuler", func() { a.showDashboard() })
 
-	validateBtn.OnTapped = func() {
+	doValidate = func() {
 		if selectedBorrowerID == 0 {
 			a.showError("Erreur", "Veuillez sélectionner un détenteur.")
 			return
@@ -273,13 +307,14 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 		}
 
 		// Générer le bon PDF en arrière-plan
+		nKeys := len(finalKeys) // capture avant la goroutine
 		go func() {
 			borrower, _ := db.GetBorrowerByID(selectedBorrowerID)
 			loans, _ := db.GetActiveLoansByBorrowerID(selectedBorrowerID)
-			// Garder uniquement les prêts tout juste créés (les N derniers)
+			// Les prêts sont triés par loan_date croissant — les N derniers sont ceux qu'on vient de créer
 			var recentLoans []db.LoanWithDetails
-			if len(loans) >= len(finalKeys) {
-				recentLoans = loans[:len(finalKeys)]
+			if len(loans) >= nKeys {
+				recentLoans = loans[len(loans)-nKeys:]
 			} else {
 				recentLoans = loans
 			}
@@ -319,8 +354,18 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 				break
 			}
 		}
-		a.showSuccess(fmt.Sprintf("%d clé(s) remise(s) à %s.\nLe bon de remise est généré dans documents/.", len(finalKeys), borrowerName))
-		a.showDashboard()
+		// Afficher la confirmation PUIS naviguer au dashboard quand l'utilisateur clique OK.
+		// Ne pas appeler showDashboard() dans le même call stack que le clic bouton
+		// car Fyne détruirait la vue courante pendant le traitement de l'événement.
+		var p *widget.PopUp
+		p = widget.NewModalPopUp(container.NewVBox(
+			widget.NewLabel(fmt.Sprintf("%d clé(s) remise(s) à %s.\nLe bon de remise est généré dans documents/.", len(finalKeys), borrowerName)),
+			widget.NewButton("OK", func() {
+				a.window.Canvas().Overlays().Remove(p)
+				a.showDashboard()
+			}),
+		), a.window.Canvas())
+		p.Show()
 	}
 
 	// --- Assemblage final ---
