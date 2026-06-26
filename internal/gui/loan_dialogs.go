@@ -70,4 +70,3 @@ func showReturnDialog(app *App, keyID int) {
 	popup = widget.NewModalPopUp(container.NewPadded(content), app.window.Canvas())
 	popup.Show()
 }
-

@@ -36,6 +36,8 @@ func GetKeyByID(id int) (*Key, error) {
 	return &keys[0], nil
 }
 
+// scanKeys lit un *sql.Rows (issu de keySelectSQL) en slice de Key.
+// Centralise le mapping colonnes->struct pour toutes les requêtes sur les clés.
 func scanKeys(rows *sql.Rows) ([]Key, error) {
 	var keys []Key
 	for rows.Next() {
@@ -180,6 +182,7 @@ func GetBorrowerByID(id int) (*Borrower, error) {
 	return &borrowers[0], nil
 }
 
+// scanBorrowers lit un *sql.Rows (issu de borrowerSelectSQL) en slice de Borrower.
 func scanBorrowers(rows *sql.Rows) ([]Borrower, error) {
 	var borrowers []Borrower
 	for rows.Next() {
@@ -371,6 +374,7 @@ func DeleteRoom(id int) error {
 	return err
 }
 
+// scanRooms lit un *sql.Rows (issu de roomSelectSQL) en slice de Room (accès).
 func scanRooms(rows *sql.Rows) ([]Room, error) {
 	var rooms []Room
 	for rows.Next() {
@@ -688,7 +692,6 @@ func GetBorrowerActiveLoanCount(borrowerID int) (int, error) {
 	return count, err
 }
 
-
 // GetKeyPlanData récupère les données pour le plan de clés
 func GetKeyPlanData() (map[int]Building, error) {
 	buildings, err := GetAllBuildings()
@@ -770,7 +773,6 @@ func CreateMultipleLoans(keyIDs []int, borrowerID int) error {
 
 	return tx.Commit()
 }
-
 
 // GetLoanDuration calcule la durée d'un emprunt en jours
 func GetLoanDuration(loanDate time.Time) float64 {

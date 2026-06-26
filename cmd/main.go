@@ -1,3 +1,8 @@
+// Commande principale du Gestionnaire de Clés.
+//
+// Point d'entrée de l'application : résout le chemin de la base SQLite,
+// prépare les dossiers de travail (documents/, backups/), initialise la
+// couche base de données + l'interface Fyne, puis lance la boucle d'événements.
 package main
 
 import (
@@ -10,6 +15,9 @@ import (
 	"strings"
 )
 
+// main orchestre le démarrage : chemin DB → dossiers → init GUI → boucle d'événements.
+// Toute erreur d'initialisation est fatale (log.Fatalf) car l'application
+// ne peut pas fonctionner sans base de données.
 func main() {
 	// Déterminer le chemin de la base de données
 	dbPath := getDBPath()
@@ -41,7 +49,13 @@ func main() {
 	app.Run()
 }
 
-// getDBPath retourne le chemin de la base de données
+// getDBPath retourne le chemin du fichier clefs.db.
+//
+// En production, la base est placée à côté de l'exécutable (permet de copier
+// tout le dossier sur une clé USB ou un partage réseau). En développement
+// (go run), l'exécutable est compilé dans un dossier temporaire système ;
+// on détecte ce cas et on retombe sur le répertoire courant pour ne pas
+// éparpiller des bases de test dans /var/folders.
 func getDBPath() string {
 	// Vérifier si on est en mode développement (go run)
 	exePath, err := os.Executable()

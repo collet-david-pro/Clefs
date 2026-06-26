@@ -6,6 +6,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// createHelpView construit la vue "Mode d.emploi" : une liste d.accordéons,
+// un par thème (installation, navigation, prêt, sauvegardes...).
 func createHelpView() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Mode d'emploi", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
@@ -215,6 +217,7 @@ func createHelpView() fyne.CanvasObject {
 	return container.NewVScroll(container.NewPadded(content))
 }
 
+// helpSection fabrique un accordéon repliable (titre + corps de texte).
 func helpSection(title string, body string) *widget.Accordion {
 	label := widget.NewLabel(body)
 	label.Wrapping = fyne.TextWrapWord

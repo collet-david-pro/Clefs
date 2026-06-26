@@ -6,6 +6,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// createAboutView construit la page "À propos" : version, fonctionnalités,
+// stack technique, auteur et licence.
 func createAboutView() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Gestionnaire de Clés", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 

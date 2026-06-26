@@ -300,6 +300,12 @@ func ImportFromPythonDB(pythonDBPath string, currentDBPath string) error {
 	return nil
 }
 
+// Les fonctions importPython* ci-dessous lisent chacune une table de l'ancienne
+// base Python (src) et la recopient dans la transaction d'import (tx) avec
+// INSERT OR IGNORE (on conserve les id d'origine, les doublons sont ignorés).
+// Elles retournent le nombre de lignes importées. Toutes partagent ce patron.
+
+// importPythonBuildings importe la table buildings.
 func importPythonBuildings(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query("SELECT id, name FROM buildings ORDER BY id")
 	if err != nil {
@@ -321,6 +327,7 @@ func importPythonBuildings(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importPythonRooms importe la table rooms (salles/accès).
 func importPythonRooms(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query("SELECT id, name, type, building_id FROM rooms ORDER BY id")
 	if err != nil {
@@ -344,6 +351,7 @@ func importPythonRooms(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importPythonKeys importe la table keys.
 func importPythonKeys(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query("SELECT id, number, description, quantity_total, quantity_reserve, storage_location FROM keys ORDER BY id")
 	if err != nil {
@@ -368,6 +376,7 @@ func importPythonKeys(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importPythonAssociations importe la table de liaison clé<->salle.
 func importPythonAssociations(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query("SELECT key_id, room_id FROM key_room_association")
 	if err != nil {
@@ -388,6 +397,7 @@ func importPythonAssociations(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importPythonBorrowers importe la table borrowers (détenteurs).
 func importPythonBorrowers(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query("SELECT id, name, email FROM borrowers ORDER BY id")
 	if err != nil {
@@ -410,6 +420,7 @@ func importPythonBorrowers(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importPythonLoans importe la table loans (emprunts).
 func importPythonLoans(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query("SELECT id, key_id, borrower_id, loan_date, return_date FROM loans ORDER BY id")
 	if err != nil {

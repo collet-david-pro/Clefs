@@ -381,6 +381,7 @@ func generateKeyStockReportPDF(app *App) {
 	app.showSuccess(fmt.Sprintf("✅ Bilan enregistré : %s", filepath))
 }
 
+// exportKeysCSV exporte l.inventaire des clés en CSV dans documents/.
 func exportKeysCSV(app *App) {
 	keys, err := db.GetKeysWithAvailability()
 	if err != nil {

@@ -1,3 +1,15 @@
+// Package business contient la logique métier pure de l'application,
+// indépendante de l'interface graphique.
+//
+// Deux problèmes y sont traités :
+//   - loan_advisor.go : "prêt par besoin" — étant donné des portes à ouvrir,
+//     proposer la plus petite combinaison de clés qui les couvre toutes
+//     (problème du Set Cover, résolu par un algorithme glouton/greedy).
+//   - redundancy.go : détecter qu'un détenteur possède des clés se recouvrant
+//     (une clé dont tous les accès sont déjà couverts par les autres).
+//
+// La plupart des fonctions reçoivent leurs données en paramètre, ce qui les
+// rend testables unitairement (cf. loan_advisor_test.go, redundancy_test.go).
 package business
 
 import (
@@ -12,9 +24,9 @@ var ErrAccessesUncoverable = errors.New("certains accès ne peuvent pas être co
 
 // SuggestionResult est le résultat de SuggestKeys.
 type SuggestionResult struct {
-	SelectedKeys      []db.Key // clés à remettre
-	UncoverableIDs    []int    // accès qu'aucune clé disponible ne couvre
-	HasUncoverable    bool
+	SelectedKeys   []db.Key // clés à remettre
+	UncoverableIDs []int    // accès qu'aucune clé disponible ne couvre
+	HasUncoverable bool
 }
 
 // SuggestKeys retourne la combinaison minimale de clés disponibles pour couvrir
@@ -131,7 +143,10 @@ func BuildAvailableKeysForAccesses(accessIDs []int) ([]db.KeyWithCoverage, error
 }
 
 // --- helpers internes ---
+// Petites fonctions ensemblistes basées sur map[int]struct{} (un "set" d'IDs).
+// struct{} est utilisé comme valeur car il n'occupe aucune mémoire.
 
+// toSet convertit un slice d'IDs en ensemble (déduplique au passage).
 func toSet(ids []int) map[int]struct{} {
 	s := make(map[int]struct{}, len(ids))
 	for _, id := range ids {
@@ -140,6 +155,7 @@ func toSet(ids []int) map[int]struct{} {
 	return s
 }
 
+// setToSlice retourne les IDs d'un ensemble sous forme de slice trié.
 func setToSlice(s map[int]struct{}) []int {
 	out := make([]int, 0, len(s))
 	for id := range s {
@@ -149,6 +165,7 @@ func setToSlice(s map[int]struct{}) []int {
 	return out
 }
 
+// intersect retourne les IDs présents à la fois dans ids et dans set.
 func intersect(ids []int, set map[int]struct{}) map[int]struct{} {
 	result := make(map[int]struct{})
 	for _, id := range ids {
@@ -159,6 +176,7 @@ func intersect(ids []int, set map[int]struct{}) map[int]struct{} {
 	return result
 }
 
+// intersectCount compte les IDs de ids présents dans set (sans allouer de map).
 func intersectCount(ids []int, set map[int]struct{}) int {
 	count := 0
 	for _, id := range ids {
@@ -169,6 +187,8 @@ func intersectCount(ids []int, set map[int]struct{}) int {
 	return count
 }
 
+// removeCandidate retourne une copie de candidates privée de la clé keyID
+// (utilisé après qu'une clé a été sélectionnée par le greedy).
 func removeCandidate(candidates []db.KeyWithCoverage, keyID int) []db.KeyWithCoverage {
 	out := make([]db.KeyWithCoverage, 0, len(candidates)-1)
 	for _, c := range candidates {

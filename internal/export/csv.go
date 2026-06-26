@@ -1,3 +1,9 @@
+// Package export produit des fichiers CSV destinés à Excel.
+//
+// Particularité "Excel France" : encodage UTF-8 avec un BOM (Byte Order Mark)
+// en tête, et séparateur point-virgule. Sans le BOM, Excel français affiche
+// mal les accents ; avec une virgule, il regroupe tout dans une seule colonne.
+// Ce package gère les deux contraintes pour une ouverture transparente.
 package export
 
 import (
@@ -9,6 +15,8 @@ import (
 	"time"
 )
 
+// documentsDir est le sous-dossier (relatif au répertoire courant) où sont
+// écrits les exports — même emplacement que les PDF générés par le package pdf.
 const documentsDir = "documents"
 
 // WriteCSV écrit un CSV UTF-8 avec BOM (compatible Excel France) dans w.

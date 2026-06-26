@@ -154,6 +154,7 @@ func createBorrowerAccordion(app *App, borrowerName string, loans []db.LoanWithD
 	return accordion
 }
 
+// exportLoansCSV exporte les emprunts en cours en CSV dans documents/.
 func exportLoansCSV(app *App) {
 	loans, err := db.GetAllActiveLoans()
 	if err != nil {

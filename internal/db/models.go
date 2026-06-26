@@ -17,13 +17,13 @@ type Key struct {
 
 // Room représente un accès physique (porte, portail, zone)
 type Room struct {
-	ID         int      `db:"id"`
-	Name       string   `db:"name"`
-	Type       string   `db:"type"`
-	BuildingID int      `db:"building_id"`
-	Floor      string   `db:"floor"`    // RDC, R+1, Sous-sol...
-	Category   string   `db:"category"` // salle de classe, local technique, bureau...
-	Notes      string   `db:"notes"`
+	ID         int    `db:"id"`
+	Name       string `db:"name"`
+	Type       string `db:"type"`
+	BuildingID int    `db:"building_id"`
+	Floor      string `db:"floor"`    // RDC, R+1, Sous-sol...
+	Category   string `db:"category"` // salle de classe, local technique, bureau...
+	Notes      string `db:"notes"`
 	Building   Building
 	Keys       []Key
 }
@@ -40,17 +40,17 @@ type Borrower struct {
 
 // Loan représente un prêt de clé
 type Loan struct {
-	ID                 int        `db:"id"`
-	KeyID              int        `db:"key_id"`
-	BorrowerID         int        `db:"borrower_id"`
-	LoanDate           time.Time  `db:"loan_date"`
-	ReturnDate         *time.Time `db:"return_date"`
-	PlannedReturnDate  *time.Time `db:"planned_return_date"`
-	LoanType           string     `db:"loan_type"` // ponctuel, permanent
-	ReturnedCondition  string     `db:"returned_condition"`
-	CreatedBy          string     `db:"created_by"`
-	Key                Key
-	Borrower           Borrower
+	ID                int        `db:"id"`
+	KeyID             int        `db:"key_id"`
+	BorrowerID        int        `db:"borrower_id"`
+	LoanDate          time.Time  `db:"loan_date"`
+	ReturnDate        *time.Time `db:"return_date"`
+	PlannedReturnDate *time.Time `db:"planned_return_date"`
+	LoanType          string     `db:"loan_type"` // ponctuel, permanent
+	ReturnedCondition string     `db:"returned_condition"`
+	CreatedBy         string     `db:"created_by"`
+	Key               Key
+	Borrower          Borrower
 }
 
 // Building représente un bâtiment
@@ -78,18 +78,18 @@ type KeyWithAvailability struct {
 // parmi ceux demandés (utilisé par l'algorithme de prêt par besoin)
 type KeyWithCoverage struct {
 	Key
-	AvailableCount  int
+	AvailableCount   int
 	CoveredAccessIDs []int
 }
 
 // LoanWithDetails contient un prêt avec tous les détails dénormalisés
 type LoanWithDetails struct {
 	Loan
-	KeyNumber         string
-	KeyDescription    string
-	BorrowerName      string
-	BorrowerEmail     string
-	PlannedReturnStr  string // formaté pour affichage
+	KeyNumber        string
+	KeyDescription   string
+	BorrowerName     string
+	BorrowerEmail    string
+	PlannedReturnStr string // formaté pour affichage
 }
 
 // LoanFilters regroupe les critères de filtrage de l'historique des prêts
@@ -105,9 +105,9 @@ type LoanFilters struct {
 // BorrowerWithKeys contient un détenteur avec ses clés actuelles et les accès cumulés
 type BorrowerWithKeys struct {
 	Borrower
-	ActiveLoans      []LoanWithDetails
-	CoveredAccesses  []Room
-	Redundancies     []Room
+	ActiveLoans     []LoanWithDetails
+	CoveredAccesses []Room
+	Redundancies    []Room
 }
 
 // RedundancyReport signale les accès couverts par plusieurs clés chez un même détenteur

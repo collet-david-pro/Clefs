@@ -114,6 +114,8 @@ func createAccessesView(a *App) fyne.CanvasObject {
 	)
 }
 
+// filterAccesses applique les filtres bâtiment/étage/catégorie à une liste
+// d.accès. Une chaîne de filtre vide ou "Tous..." désactive le critère.
 func filterAccesses(accesses []db.Room, buildings []db.Building, bFilter, fFilter, cFilter string) []db.Room {
 	var result []db.Room
 	for _, r := range accesses {

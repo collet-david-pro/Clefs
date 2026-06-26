@@ -1,3 +1,19 @@
+// Package gui contient toute l'interface graphique, construite avec Fyne.
+//
+// Organisation : le type App (app.go) détient la fenêtre et le menu latéral
+// permanent ; chaque "vue" est une fonction createXxxView(...) fyne.CanvasObject
+// définie dans un fichier dédié (keys.go, borrowers.go, new_loan_view.go, ...).
+// La navigation se fait en remplaçant le panneau central via App.setContent.
+//
+// Conventions Fyne récurrentes dans ce package :
+//   - container.NewBorder(top, bottom, left, right, center) : le centre prend
+//     l'espace restant. C'est le seul moyen fiable de contraindre la hauteur
+//     d'un VScroll (un VScroll dans un VBox se réduit à zéro).
+//   - widget capturé par sa propre closure : on déclare `var w *widget.X`
+//     AVANT de l'instancier pour pouvoir y faire référence dans son callback.
+//
+// L'application n'a pas d'authentification : l'utilisateur est toujours
+// l'administrateur (cf. README / NOTICE).
 package gui
 
 import (
@@ -11,13 +27,15 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// App représente l'application principale
+// App est l'état global de l'interface : application et fenêtre Fyne,
+// conteneur central courant, et chemin de la base (passé aux dialogues
+// d'import/sauvegarde).
 type App struct {
-	fyneApp     fyne.App
-	window      fyne.Window
-	content     *fyne.Container
-	dbPath      string
-	currentView string // vue active pour refreshCurrentView
+	fyneApp     fyne.App        // instance Fyne (boucle d'événements, thème)
+	window      fyne.Window     // fenêtre principale unique
+	content     *fyne.Container // panneau central remplacé à chaque navigation
+	dbPath      string          // chemin du fichier clefs.db (pour import/backup)
+	currentView string          // nom de la vue active (diagnostic uniquement)
 }
 
 // NewApp crée une nouvelle instance de l'application
@@ -128,6 +146,12 @@ func (a *App) setContent(content fyne.CanvasObject, viewName string) {
 }
 
 // --- Méthodes de navigation ---
+//
+// Chaque showXxx construit la vue correspondante via sa fonction createXxxView
+// et l'installe au centre avec setContent. Elles sont déclenchées par les
+// boutons du menu latéral (createMenu) ou par des actions dans les vues
+// (ex. un bouton "Emprunter" appelle showNewLoan). Le second argument de
+// setContent est le nom de la vue, conservé dans App.currentView.
 
 func (a *App) showDashboard() {
 	a.setContent(createModernDashboard(a), "dashboard")
@@ -199,7 +223,12 @@ func (a *App) showRedundancies() {
 }
 
 // --- Dialogues communs ---
+//
+// Ces trois helpers affichent une popup modale réutilisable. Le motif Fyne
+// `var p *widget.PopUp; p = ...` est nécessaire pour que le bouton OK puisse
+// se référer à la popup (la fermer) depuis sa propre closure.
 
+// showError affiche un message d'erreur bloquant avec un titre en gras.
 func (a *App) showError(title, message string) {
 	var p *widget.PopUp
 	p = widget.NewModalPopUp(container.NewVBox(
@@ -210,6 +239,7 @@ func (a *App) showError(title, message string) {
 	p.Show()
 }
 
+// showSuccess affiche un message de confirmation simple.
 func (a *App) showSuccess(message string) {
 	var p *widget.PopUp
 	p = widget.NewModalPopUp(container.NewVBox(
@@ -219,6 +249,8 @@ func (a *App) showSuccess(message string) {
 	p.Show()
 }
 
+// showConfirm demande une confirmation ; onConfirm n'est exécuté que si
+// l'utilisateur clique sur "Confirmer". Utilisé pour les suppressions et le quit.
 func (a *App) showConfirm(title, message string, onConfirm func()) {
 	var p *widget.PopUp
 	p = widget.NewModalPopUp(container.NewVBox(
@@ -235,6 +267,7 @@ func (a *App) showConfirm(title, message string, onConfirm func()) {
 	p.Show()
 }
 
+// quit demande confirmation puis ferme proprement la base avant de quitter.
 func (a *App) quit() {
 	a.showConfirm("Quitter", "Êtes-vous sûr de vouloir quitter ?", func() {
 		if err := db.CloseDB(); err != nil {

@@ -104,6 +104,10 @@ func ImportFromV2(v2DBPath string, currentDBPath string) (*ImportSummary, error)
 	return summary, nil
 }
 
+// Les fonctions importV2* lisent une table de la base V2 (src) et la recopient
+// dans la transaction d.import (tx). Elles retournent le nombre de lignes importées.
+
+// importV2Buildings importe la table buildings.
 func importV2Buildings(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query(`SELECT id, name FROM buildings ORDER BY id`)
 	if err != nil {
@@ -125,6 +129,7 @@ func importV2Buildings(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importV2Rooms importe la table rooms (salles/accès).
 func importV2Rooms(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query(`SELECT id, name, type, building_id FROM rooms ORDER BY id`)
 	if err != nil {
@@ -151,6 +156,7 @@ func importV2Rooms(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importV2Keys importe la table keys.
 func importV2Keys(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query(`SELECT id, number, description, quantity_total, quantity_reserve, storage_location FROM keys ORDER BY id`)
 	if err != nil {
@@ -178,6 +184,7 @@ func importV2Keys(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importV2Associations importe la table de liaison clé<->salle.
 func importV2Associations(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query(`SELECT key_id, room_id FROM key_room_association`)
 	if err != nil {
@@ -200,6 +207,7 @@ func importV2Associations(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importV2Borrowers importe la table borrowers (détenteurs).
 func importV2Borrowers(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query(`SELECT id, name, email FROM borrowers ORDER BY id`)
 	if err != nil {
@@ -226,6 +234,7 @@ func importV2Borrowers(tx *sql.Tx, src *sql.DB) (int, error) {
 	return count, rows.Err()
 }
 
+// importV2Loans importe la table loans (emprunts).
 func importV2Loans(tx *sql.Tx, src *sql.DB) (int, error) {
 	rows, err := src.Query(`SELECT id, key_id, borrower_id, loan_date, return_date FROM loans ORDER BY id`)
 	if err != nil {

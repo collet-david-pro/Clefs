@@ -1,3 +1,12 @@
+// Package pdf génère les documents imprimables de l'application avec gofpdf.
+//
+// generator.go construit le contenu des PDF (bons de remise, plan de clés,
+// bilan de stock) et retourne des []byte ; exporter.go gère l'écriture sur
+// disque dans le dossier documents/ et la génération de noms horodatés.
+//
+// Note d'encodage : gofpdf utilise les polices PDF standard (Latin-1).
+// Pour afficher correctement les caractères accentués français, on passe
+// chaque chaîne par le traducteur tr := p.UnicodeTranslatorFromDescriptor("").
 package pdf
 
 import (

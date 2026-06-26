@@ -99,6 +99,9 @@ func splitSQL(block string) []string {
 	return stmts
 }
 
+// trimSQL nettoie une requête SQL multi-lignes (retire tabulations et sauts
+// de ligne superflus) pour produire un libellé compact, surtout utile dans
+// les logs de migration.
 func trimSQL(s string) string {
 	out := make([]byte, 0, len(s))
 	for _, c := range []byte(s) {

@@ -184,6 +184,7 @@ func createHistoryView(a *App) fyne.CanvasObject {
 	)
 }
 
+// exportHistoryCSV exporte l.historique filtré des prêts en CSV dans documents/.
 func exportHistoryCSV(a *App, filters db.LoanFilters) {
 	loans, err := db.GetLoanHistory(filters)
 	if err != nil {

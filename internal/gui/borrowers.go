@@ -297,6 +297,7 @@ func generateBorrowerReceipt(app *App, borrowerID int) {
 	saveDialog.Show()
 }
 
+// exportBorrowersCSV exporte la liste des détenteurs en CSV dans documents/.
 func exportBorrowersCSV(app *App) {
 	borrowers, err := db.GetAllBorrowers()
 	if err != nil {
