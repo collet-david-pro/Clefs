@@ -294,9 +294,6 @@ func GetAllAccesses() ([]Room, error) {
 	return scanRooms(rows)
 }
 
-// GetAllRooms est un alias de GetAllAccesses pour la compatibilité interne
-func GetAllRooms() ([]Room, error) { return GetAllAccesses() }
-
 // GetRoomByID récupère un accès par son ID
 func GetRoomByID(id int) (*Room, error) {
 	rows, err := DB.Query(roomSelectSQL+` WHERE id = ?`, id)
@@ -431,30 +428,6 @@ func GetActiveLoansByBorrowerID(borrowerID int) ([]LoanWithDetails, error) {
 	return scanLoansWithDetails(rows)
 }
 
-// GetLoanByID récupère un emprunt par son ID
-func GetLoanByID(id int) (*LoanWithDetails, error) {
-	rows, err := DB.Query(loanSelectSQL+` WHERE l.id = ?`, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	loans, err := scanLoansWithDetails(rows)
-	if err != nil {
-		return nil, err
-	}
-	if len(loans) == 0 {
-		return nil, sql.ErrNoRows
-	}
-	return &loans[0], nil
-}
-
-// CreateLoan crée un nouvel emprunt
-func CreateLoan(keyID, borrowerID int) error {
-	_, err := DB.Exec(`INSERT INTO loans (key_id, borrower_id, loan_date) VALUES (?, ?, ?)`,
-		keyID, borrowerID, time.Now())
-	return err
-}
-
 // ReturnLoan marque un emprunt comme retourné, avec état constaté optionnel.
 func ReturnLoan(loanID int) error {
 	return ReturnLoanWithCondition(loanID, "")
@@ -561,44 +534,6 @@ func GetOverdueLoans() ([]LoanWithDetails, error) {
 		  AND l.planned_return_date < datetime('now')
 		ORDER BY l.planned_return_date
 	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanLoansWithDetails(rows)
-}
-
-// GetKeyHistory récupère l'historique complet (actifs + retournés) d'une clé.
-func GetKeyHistory(keyID int) ([]LoanWithDetails, error) {
-	rows, err := DB.Query(`
-		SELECT l.id, l.key_id, l.borrower_id, l.loan_date, l.return_date,
-		       l.planned_return_date, l.loan_type, l.returned_condition, l.created_by,
-		       k.number, k.description, b.name, b.email
-		FROM loans l
-		INNER JOIN keys k ON l.key_id = k.id
-		INNER JOIN borrowers b ON l.borrower_id = b.id
-		WHERE l.key_id = ?
-		ORDER BY l.loan_date DESC
-	`, keyID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanLoansWithDetails(rows)
-}
-
-// GetBorrowerHistory récupère l'historique complet d'un détenteur.
-func GetBorrowerHistory(borrowerID int) ([]LoanWithDetails, error) {
-	rows, err := DB.Query(`
-		SELECT l.id, l.key_id, l.borrower_id, l.loan_date, l.return_date,
-		       l.planned_return_date, l.loan_type, l.returned_condition, l.created_by,
-		       k.number, k.description, b.name, b.email
-		FROM loans l
-		INNER JOIN keys k ON l.key_id = k.id
-		INNER JOIN borrowers b ON l.borrower_id = b.id
-		WHERE l.borrower_id = ?
-		ORDER BY l.loan_date DESC
-	`, borrowerID)
 	if err != nil {
 		return nil, err
 	}
@@ -812,22 +747,6 @@ func GetKeysForRoom(roomID int) ([]Key, error) {
 		keys = append(keys, k)
 	}
 	return keys, rows.Err()
-}
-
-// CheckKeyAvailability vérifie si une clé est disponible pour un emprunt
-func CheckKeyAvailability(keyID int) (bool, error) {
-	key, err := GetKeyByID(keyID)
-	if err != nil {
-		return false, err
-	}
-
-	count, err := GetActiveLoanCount(keyID)
-	if err != nil {
-		return false, err
-	}
-
-	usable := key.QuantityTotal - key.QuantityReserve
-	return usable > count, nil
 }
 
 // CreateMultipleLoans crée plusieurs emprunts pour un emprunteur.

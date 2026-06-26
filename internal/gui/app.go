@@ -118,50 +118,13 @@ func (a *App) createMenu() fyne.CanvasObject {
 	return container.NewVScroll(menuBox)
 }
 
-// setContent met à jour le contenu principal et enregistre la vue courante
+// setContent met à jour le contenu principal et reconstruit le menu latéral.
+// viewName identifie la vue active (utile pour le diagnostic ; non lu par le runtime).
 func (a *App) setContent(content fyne.CanvasObject, viewName string) {
 	a.currentView = viewName
 	a.content = container.NewMax(content)
 	menu := a.createMenu()
 	a.window.SetContent(container.NewBorder(nil, nil, menu, nil, a.content))
-}
-
-// refreshCurrentView recharge la vue active
-func (a *App) refreshCurrentView() {
-	switch a.currentView {
-	case "dashboard":
-		a.showDashboard()
-	case "activeLoans":
-		a.showActiveLoans()
-	case "history":
-		a.showHistory()
-	case "loansReport":
-		a.showLoansReport()
-	case "keys":
-		a.showKeys()
-	case "borrowers":
-		a.showBorrowers()
-	case "buildings":
-		a.showBuildings()
-	case "accesses":
-		a.showAccesses()
-	case "keyPlan":
-		a.showKeyPlan()
-	case "whoHasWhat":
-		a.showWhoHasWhat()
-	case "keyToAccess":
-		a.showKeyToAccess()
-	case "keysByBuilding":
-		a.showKeysByBuilding()
-	case "availableKeys":
-		a.showAvailableKeys()
-	case "redundancies":
-		a.showRedundancies()
-	case "newLoan":
-		a.showNewLoan()
-	default:
-		a.showDashboard()
-	}
 }
 
 // --- Méthodes de navigation ---
@@ -199,10 +162,6 @@ func (a *App) showActiveLoans() {
 	a.setContent(createActiveLoansView(a), "activeLoans")
 }
 
-func (a *App) showLoansReport() {
-	a.setContent(createLoansReportView(a), "loansReport")
-}
-
 func (a *App) showHistory() {
 	a.setContent(createHistoryView(a), "history")
 }
@@ -231,16 +190,8 @@ func (a *App) showWhoHasWhat() {
 	a.setContent(createWhoHasWhatView(a), "whoHasWhat")
 }
 
-func (a *App) showKeyToAccess() {
-	a.setContent(createKeyToAccessView(a), "keyToAccess")
-}
-
 func (a *App) showKeysByBuilding() {
 	a.setContent(createKeysByBuildingView(a), "keysByBuilding")
-}
-
-func (a *App) showAvailableKeys() {
-	a.setContent(createAvailableKeysView(a), "availableKeys")
 }
 
 func (a *App) showRedundancies() {

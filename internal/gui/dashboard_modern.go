@@ -123,20 +123,6 @@ func createStatisticsCards(stats map[string]interface{}) fyne.CanvasObject {
 	return container.NewVBox(container.NewCenter(row1), alertsBox)
 }
 
-// createStatsCard crée une card de statistique stylisée
-func createStatsCard(title string, value string, colorName fyne.ThemeColorName) fyne.CanvasObject {
-	valueLabel := widget.NewLabelWithStyle(value, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	titleLabel := widget.NewLabelWithStyle(title, fyne.TextAlignCenter, fyne.TextStyle{})
-
-	content := container.NewVBox(
-		container.NewCenter(valueLabel),
-		container.NewCenter(titleLabel),
-	)
-
-	card := widget.NewCard("", "", content)
-	return card
-}
-
 // createSimpleKeysTable crée un tableau simple et lisible des clés
 func createSimpleKeysTable(keys []db.KeyWithAvailability, app *App) fyne.CanvasObject {
 	if len(keys) == 0 {
@@ -268,67 +254,4 @@ func createSimpleKeysTable(keys []db.KeyWithAvailability, app *App) fyne.CanvasO
 
 	// Retourner le tableau dans un conteneur scrollable
 	return container.NewScroll(table)
-}
-
-// showKeyDetails affiche les détails d'une clé
-func showKeyDetails(app *App, keyID int) {
-	// Récupérer les détails de la clé
-	key, err := db.GetKeyByID(keyID)
-	if err != nil {
-		app.showError("Erreur", "Impossible de charger les détails de la clé")
-		return
-	}
-
-	// Récupérer les emprunts actifs
-	loans, _ := db.GetActiveLoansByKeyID(keyID)
-
-	// Créer le contenu des détails
-	detailsContent := container.NewVBox(
-		widget.NewLabelWithStyle("Numéro:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabel(key.Number),
-		widget.NewSeparator(),
-
-		widget.NewLabelWithStyle("Description:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabel(key.Description),
-		widget.NewSeparator(),
-
-		widget.NewLabelWithStyle("Quantités:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabel(fmt.Sprintf("Total: %d | Réserve: %d", key.QuantityTotal, key.QuantityReserve)),
-		widget.NewSeparator(),
-
-		widget.NewLabelWithStyle("Lieu de stockage:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabel(key.StorageLocation),
-	)
-
-	// Ajouter les emprunts actifs s'il y en a
-	if len(loans) > 0 {
-		detailsContent.Add(widget.NewSeparator())
-		detailsContent.Add(widget.NewLabelWithStyle("Emprunts actifs:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
-		for _, loan := range loans {
-			loanText := fmt.Sprintf("• %s - depuis le %s",
-				loan.BorrowerName,
-				loan.LoanDate.Format("02/01/2006"),
-			)
-			detailsContent.Add(widget.NewLabel(loanText))
-		}
-	}
-
-	// Créer la popup
-	var dialog *widget.PopUp
-
-	closeBtn := widget.NewButton("Fermer", func() {
-		app.window.Canvas().Overlays().Remove(dialog)
-	})
-
-	content := container.NewVBox(
-		widget.NewLabelWithStyle("📋 Détails de la Clé", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewSeparator(),
-		container.NewScroll(detailsContent),
-		widget.NewSeparator(),
-		container.NewCenter(closeBtn),
-	)
-
-	dialog = widget.NewModalPopUp(content, app.window.Canvas())
-	dialog.Resize(fyne.NewSize(500, 400))
-	dialog.Show()
 }

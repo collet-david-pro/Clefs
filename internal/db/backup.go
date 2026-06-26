@@ -230,24 +230,6 @@ func formatFileSize(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
-// GetBackupInfo retourne les informations sur une sauvegarde spécifique
-func GetBackupInfo(backupPath string) (*BackupInfo, error) {
-	info, err := os.Stat(backupPath)
-	if err != nil {
-		return nil, fmt.Errorf("erreur lors de la récupération des informations: %w", err)
-	}
-
-	backup := &BackupInfo{
-		Path:    backupPath,
-		Name:    filepath.Base(backupPath),
-		Size:    info.Size(),
-		ModTime: info.ModTime(),
-		SizeStr: formatFileSize(info.Size()),
-	}
-
-	return backup, nil
-}
-
 // ImportFromPythonDB importe les données depuis l'ancienne base de données Python
 func ImportFromPythonDB(pythonDBPath string, currentDBPath string) error {
 	// Vérifier que le fichier source existe
