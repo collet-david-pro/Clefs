@@ -264,6 +264,22 @@ func (a *App) showSuccess(message string) {
 	p.Show()
 }
 
+// showInfo affiche un message d'information titré, dans une boîte au corps
+// scrollable (adapté aux textes longs comme les résumés d'import).
+func (a *App) showInfo(title, message string) {
+	body := widget.NewLabel(message)
+	body.Wrapping = fyne.TextWrapWord
+	scroll := container.NewVScroll(body)
+	scroll.SetMinSize(fyne.NewSize(460, 240))
+	var p *widget.PopUp
+	p = widget.NewModalPopUp(container.NewVBox(
+		widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		scroll,
+		widget.NewButton("OK", func() { a.window.Canvas().Overlays().Remove(p) }),
+	), a.window.Canvas())
+	p.Show()
+}
+
 // showConfirm demande une confirmation ; onConfirm n'est exécuté que si
 // l'utilisateur clique sur "Confirmer". Utilisé pour les suppressions et le quit.
 func (a *App) showConfirm(title, message string, onConfirm func()) {

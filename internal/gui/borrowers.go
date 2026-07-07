@@ -1,15 +1,20 @@
 package gui
 
 import (
+	"bytes"
 	"clefs/internal/db"
 	"clefs/internal/export"
 	"clefs/internal/pdf"
+	"encoding/csv"
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -24,7 +29,11 @@ func createBorrowersView(app *App) fyne.CanvasObject {
 
 	csvBtn := widget.NewButton("📊 Exporter CSV", func() { exportBorrowersCSV(app) })
 
-	header := container.NewBorder(nil, nil, nil, container.NewHBox(csvBtn, addBtn), title)
+	templateBtn := widget.NewButton("📥 Modèle CSV", func() { downloadBorrowersTemplateCSV(app) })
+
+	importBtn := widget.NewButton("📤 Importer CSV", func() { showImportBorrowersCSV(app) })
+
+	header := container.NewBorder(nil, nil, nil, container.NewHBox(templateBtn, importBtn, csvBtn, addBtn), title)
 
 	// Récupérer les emprunteurs
 	borrowers, err := db.GetAllBorrowers()
@@ -295,6 +304,141 @@ func generateBorrowerReceipt(app *App, borrowerID int) {
 
 	saveDialog.SetFileName(filename)
 	saveDialog.Show()
+}
+
+// borrowersCSVHeaders est l'ordre des colonnes attendu pour l'import/export et
+// le modèle des détenteurs. Il correspond aux champs de db.Borrower saisissables
+// dans showAddBorrowerDialog (le nom est obligatoire, les autres facultatifs).
+var borrowersCSVHeaders = []string{"Nom", "Email", "Statut", "Téléphone"}
+
+// downloadBorrowersTemplateCSV génère dans documents/ un modèle CSV vide (juste
+// les en-têtes et une ligne d'exemple) que l'utilisateur peut remplir puis
+// réimporter via showImportBorrowersCSV.
+func downloadBorrowersTemplateCSV(app *App) {
+	rows := [][]string{
+		{"Dupont Jean", "jean.dupont@exemple.fr", "permanent", "0102030405"},
+	}
+	filePath, err := export.SaveCSV(export.Filename("modele_detenteurs"), borrowersCSVHeaders, rows)
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Erreur lors de la génération du modèle: %v", err))
+		return
+	}
+	app.showSuccess(fmt.Sprintf("✅ Modèle CSV enregistré : %s", filePath))
+}
+
+// showImportBorrowersCSV ouvre un sélecteur de fichier puis crée en masse les
+// détenteurs décrits dans le CSV choisi (au format du modèle). Les lignes
+// invalides sont ignorées et résumées à la fin sans faire échouer tout l'import.
+func showImportBorrowersCSV(app *App) {
+	fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+		if err != nil {
+			app.showError("Erreur", fmt.Sprintf("Erreur: %v", err))
+			return
+		}
+		if reader == nil {
+			return
+		}
+		defer reader.Close()
+		importBorrowersFromCSV(app, reader)
+	}, app.window)
+	fileDialog.SetFilter(storage.NewExtensionFileFilter([]string{".csv"}))
+	fileDialog.Show()
+}
+
+// importBorrowersFromCSV lit le CSV fourni et crée les détenteurs ligne par
+// ligne. Il tolère le BOM UTF-8 et le séparateur point-virgule produits par
+// l'export, saute une éventuelle ligne d'en-tête, et affiche un résumé
+// détaillant les lignes créées et les lignes rejetées.
+func importBorrowersFromCSV(app *App, r io.Reader) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("Lecture du fichier impossible: %v", err))
+		return
+	}
+	// Retirer un éventuel BOM UTF-8 en tête (présent dans nos exports).
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+
+	cr := csv.NewReader(bytes.NewReader(data))
+	cr.Comma = ';'
+	cr.FieldsPerRecord = -1 // tolérer un nombre de colonnes variable
+	records, err := cr.ReadAll()
+	if err != nil {
+		app.showError("Erreur", fmt.Sprintf("CSV invalide: %v", err))
+		return
+	}
+	if len(records) == 0 {
+		app.showError("Erreur", "Le fichier est vide.")
+		return
+	}
+
+	validStatuses := map[string]bool{
+		"permanent": true, "contractuel": true, "intervenant": true, "entreprise": true,
+	}
+
+	created := 0
+	var problems []string
+	for i, rec := range records {
+		lineNum := i + 1
+		// Sauter une ligne d'en-tête (première ligne dont la 1re cellule vaut "Nom").
+		if i == 0 && len(rec) > 0 && strings.EqualFold(strings.TrimSpace(rec[0]), "Nom") {
+			continue
+		}
+		// Ignorer les lignes totalement vides.
+		if isBlankRecord(rec) {
+			continue
+		}
+		name := ""
+		if len(rec) > 0 {
+			name = strings.TrimSpace(rec[0])
+		}
+		if name == "" {
+			problems = append(problems, fmt.Sprintf("ligne %d (nom manquant)", lineNum))
+			continue
+		}
+		email, status, phone := "", "permanent", ""
+		if len(rec) > 1 {
+			email = strings.TrimSpace(rec[1])
+		}
+		if len(rec) > 2 && strings.TrimSpace(rec[2]) != "" {
+			status = strings.ToLower(strings.TrimSpace(rec[2]))
+			if !validStatuses[status] {
+				problems = append(problems, fmt.Sprintf("ligne %d (statut « %s » inconnu)", lineNum, status))
+				continue
+			}
+		}
+		if len(rec) > 3 {
+			phone = strings.TrimSpace(rec[3])
+		}
+		b := &db.Borrower{Name: name, Email: email, Status: status, Phone: phone}
+		if err := db.CreateBorrower(b); err != nil {
+			problems = append(problems, fmt.Sprintf("ligne %d (%v)", lineNum, err))
+			continue
+		}
+		created++
+	}
+
+	summary := fmt.Sprintf("%d détenteur(s) créé(s).", created)
+	if len(problems) > 0 {
+		summary += fmt.Sprintf("\n%d ligne(s) invalide(s) :\n  • %s",
+			len(problems), strings.Join(problems, "\n  • "))
+	}
+	if created > 0 {
+		app.showInfo("Import terminé", summary)
+		app.showBorrowers()
+		return
+	}
+	app.showInfo("Import terminé", summary)
+}
+
+// isBlankRecord indique si un enregistrement CSV ne contient que des cellules
+// vides (utile pour ignorer les lignes vides d'un fichier).
+func isBlankRecord(rec []string) bool {
+	for _, c := range rec {
+		if strings.TrimSpace(c) != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // exportBorrowersCSV exporte la liste des détenteurs en CSV dans documents/.
