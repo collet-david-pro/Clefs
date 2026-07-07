@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
@@ -56,13 +57,16 @@ func createKeyPlanView(app *App) fyne.CanvasObject {
 	return content
 }
 
-// createRoomsToKeysView crée la vue Portes → Clés (Compacte et Triée)
+// createRoomsToKeysView crée la vue Portes → Clés (Compacte et Triée).
+// Le rendu s'appuie sur les cards et badges de ui_kit.go : une card par
+// bâtiment regroupant ses accès, chaque accès listant ses clés sous forme de
+// pastilles colorées.
 func createRoomsToKeysView(buildingsMap map[int]db.Building) fyne.CanvasObject {
 	planBox := container.NewVBox()
 
 	if len(buildingsMap) == 0 {
 		planBox.Add(widget.NewLabel("Aucun bâtiment configuré"))
-		return planBox
+		return container.NewPadded(planBox)
 	}
 
 	// Convertir la map en slice pour le tri
@@ -77,57 +81,60 @@ func createRoomsToKeysView(buildingsMap map[int]db.Building) fyne.CanvasObject {
 	})
 
 	for _, building := range buildings {
-		// En-tête du bâtiment (Compact)
-		buildingLabel := widget.NewLabelWithStyle("🏢 "+building.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-		planBox.Add(buildingLabel)
+		buildingTitle := canvas.NewText("🏢 "+building.Name, colorText)
+		buildingTitle.TextStyle = fyne.TextStyle{Bold: true}
+		buildingTitle.TextSize = 16
+
+		cardContent := container.NewVBox(buildingTitle)
 
 		if len(building.Rooms) == 0 {
-			planBox.Add(widget.NewLabel("  (Aucune salle)"))
+			empty := canvas.NewText("Aucune salle", colorTextMuted)
+			empty.TextSize = 12
+			cardContent.Add(empty)
 		} else {
 			// Trier les salles par nom
 			sort.Slice(building.Rooms, func(i, j int) bool {
 				return strings.ToLower(building.Rooms[i].Name) < strings.ToLower(building.Rooms[j].Name)
 			})
 
-			// Pour chaque salle
 			for _, room := range building.Rooms {
-				// Construction de la ligne salle + clés
-				var textBuilder strings.Builder
-				textBuilder.WriteString(fmt.Sprintf("  • %s", room.Name))
+				roomName := room.Name
 				if room.Type != "" {
-					textBuilder.WriteString(fmt.Sprintf(" (%s)", room.Type))
+					roomName += fmt.Sprintf(" (%s)", room.Type)
 				}
-				textBuilder.WriteString(" : ")
+				nameText := canvas.NewText(roomName, colorText)
+				nameText.TextStyle = fyne.TextStyle{Bold: true}
+				nameText.TextSize = 13
 
+				var keysObj fyne.CanvasObject
 				if len(room.Keys) == 0 {
-					textBuilder.WriteString("Aucune clé")
+					keysObj = badge("Aucune clé", colorDangerSoft, colorDanger)
 				} else {
-					// Trier les clés par numéro
 					sort.Slice(room.Keys, func(i, j int) bool {
 						return room.Keys[i].Number < room.Keys[j].Number
 					})
-
-					var keyTexts []string
+					keyBadges := container.NewHBox()
 					for _, key := range room.Keys {
-						keyTexts = append(keyTexts, fmt.Sprintf("%s", key.Number))
+						keyBadges.Add(badge(key.Number, colorPrimarySoft, colorPrimary))
 					}
-					textBuilder.WriteString(strings.Join(keyTexts, ", "))
+					keysObj = keyBadges
 				}
 
-				// Affichage compact sur une ligne
-				label := widget.NewLabel(textBuilder.String())
-				label.Wrapping = fyne.TextWrapWord
-				planBox.Add(label)
+				row := container.NewBorder(nil, nil,
+					container.NewHBox(coloredDot(colorPrimary, 8), nameText),
+					nil, keysObj)
+				cardContent.Add(container.NewPadded(row))
 			}
 		}
-		// Petit séparateur discret entre bâtiments
-		planBox.Add(widget.NewSeparator())
+		planBox.Add(card(cardContent))
 	}
 
 	return container.NewPadded(planBox)
 }
 
-// createKeysToRoomsView crée la vue Clés → Portes (Compacte et Triée)
+// createKeysToRoomsView crée la vue Clés → Portes (Compacte et Triée).
+// Chaque clé est présentée dans une card : en-tête (numéro + description) et
+// pastilles des accès qu'elle ouvre, dans l'esprit visuel de ui_kit.go.
 func createKeysToRoomsView() fyne.CanvasObject {
 	planBox := container.NewVBox()
 
@@ -135,12 +142,12 @@ func createKeysToRoomsView() fyne.CanvasObject {
 	keys, err := db.GetAllKeys()
 	if err != nil {
 		planBox.Add(widget.NewLabel(fmt.Sprintf("Erreur: %v", err)))
-		return planBox
+		return container.NewPadded(planBox)
 	}
 
 	if len(keys) == 0 {
 		planBox.Add(widget.NewLabel("Aucune clé configurée"))
-		return planBox
+		return container.NewPadded(planBox)
 	}
 
 	// Trier les clés par numéro
@@ -148,41 +155,40 @@ func createKeysToRoomsView() fyne.CanvasObject {
 		return keys[i].Number < keys[j].Number
 	})
 
-	// Pour chaque clé
 	for _, key := range keys {
-		// En-tête de la clé
-		keyHeader := fmt.Sprintf("🔑 %s - %s", key.Number, key.Description)
+		keyTitle := canvas.NewText(fmt.Sprintf("🔑 %s — %s", key.Number, key.Description), colorText)
+		keyTitle.TextStyle = fyne.TextStyle{Bold: true}
+		keyTitle.TextSize = 15
 
-		// Récupérer les salles associées
+		cardContent := container.NewVBox(keyTitle)
+
 		rooms, err := db.GetRoomsForKey(key.ID)
-		var roomsText string
-
-		if err != nil {
-			roomsText = "Erreur de chargement"
-		} else if len(rooms) == 0 {
-			roomsText = "Aucune porte"
-		} else {
-			// Trier les salles par nom
+		switch {
+		case err != nil:
+			cardContent.Add(badge("Erreur de chargement", colorDangerSoft, colorDanger))
+		case len(rooms) == 0:
+			cardContent.Add(badge("Aucune porte", colorWarningSoft, colorWarning))
+		default:
 			sort.Slice(rooms, func(i, j int) bool {
 				return strings.ToLower(rooms[i].Name) < strings.ToLower(rooms[j].Name)
 			})
-
-			var roomNames []string
-			for _, room := range rooms {
-				roomNames = append(roomNames, room.Name)
+			roomBadges := container.NewVBox()
+			line := container.NewHBox()
+			for i, room := range rooms {
+				line.Add(badge(room.Name, colorPrimarySoft, colorPrimary))
+				// Répartir en lignes de 4 pastilles pour éviter un débordement.
+				if (i+1)%4 == 0 {
+					roomBadges.Add(line)
+					line = container.NewHBox()
+				}
 			}
-			roomsText = strings.Join(roomNames, ", ")
+			if len(line.Objects) > 0 {
+				roomBadges.Add(line)
+			}
+			cardContent.Add(roomBadges)
 		}
 
-		// Affichage compact : Clé en gras, liste des portes en dessous
-		keyLabel := widget.NewLabelWithStyle(keyHeader, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-		planBox.Add(keyLabel)
-
-		roomsLabel := widget.NewLabel("   -> Ouvre : " + roomsText)
-		roomsLabel.Wrapping = fyne.TextWrapWord
-		planBox.Add(roomsLabel)
-
-		planBox.Add(widget.NewSeparator())
+		planBox.Add(card(cardContent))
 	}
 
 	return container.NewPadded(planBox)
