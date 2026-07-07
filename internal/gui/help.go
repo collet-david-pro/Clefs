@@ -118,9 +118,31 @@ func createHelpView() fyne.CanvasObject {
 			"  4. Enregistrez\n\n"+
 			"Formule disponibilité :\n"+
 			"  Disponible = Total − Réserve − Emprunts en cours\n\n"+
+			"Ajustement rapide du stock :\n"+
+			"  • Dans la liste, chaque clé propose un curseur + champ pour modifier\n"+
+			"    directement le stock total, sans ouvrir le formulaire complet\n"+
+			"  • Le bouton 'Enregistrer' s'active dès que la valeur change\n\n"+
+			"Vue compacte / détaillée :\n"+
+			"  • Bouton 'Vue compacte' en haut : bascule vers une liste où chaque\n"+
+			"    clé tient sur une ligne (numéro + stock dispo/total)\n"+
+			"  • Cliquez une ligne pour la déplier et retrouver le détail complet\n"+
+			"    (description, disponibilité, ajustement, actions) ; plusieurs\n"+
+			"    lignes peuvent être ouvertes à la fois\n"+
+			"  • Bouton 'Vue détaillée' pour revenir aux cards complètes\n\n"+
 			"Exports disponibles :\n"+
 			"  • Bilan des clés (PDF) — état du stock avec emprunts actifs\n"+
 			"  • Export CSV — tableur complet compatible Excel",
+	))
+
+	sections.Add(helpSection("Gestion des accès",
+		"Accès : Référentiels > Accès\n\n"+
+			"Filtres (bâtiment / étage / catégorie) en haut de la vue.\n\n"+
+			"Vue compacte / détaillée :\n"+
+			"  • Même principe que pour les clés : le bouton 'Vue compacte'\n"+
+			"    affiche un accès par ligne (nom · bâtiment — nombre de clés)\n"+
+			"  • Cliquez une ligne pour la déplier et voir le détail (méta-données,\n"+
+			"    clés associées, actions Modifier/Supprimer)\n"+
+			"  • 'Vue détaillée' rétablit les cards complètes",
 	))
 
 	sections.Add(helpSection("Référentiels — ordre de configuration",
@@ -177,7 +199,16 @@ func createHelpView() fyne.CanvasObject {
 			"    séparateur ';' — s'ouvre directement dans Excel sans conversion\n\n"+
 			"Autres exports CSV disponibles :\n"+
 			"  • Inventaire des clés (depuis Référentiels > Clés)\n"+
-			"  • Liste des détenteurs (depuis Référentiels > Détenteurs)",
+			"  • Liste des détenteurs (depuis Référentiels > Détenteurs)\n\n"+
+			"Import en masse des détenteurs :\n"+
+			"  1. Référentiels > Détenteurs > bouton 'Modèle CSV' :\n"+
+			"     télécharge un fichier vide dans documents/ avec les bonnes\n"+
+			"     colonnes (Nom, Email, Statut, Téléphone) et une ligne d'exemple\n"+
+			"  2. Remplissez ce fichier (le nom est obligatoire ; statut parmi\n"+
+			"     permanent, contractuel, intervenant, entreprise — défaut permanent)\n"+
+			"  3. Bouton 'Importer CSV', choisissez votre fichier\n"+
+			"  4. Un résumé indique le nombre de détenteurs créés et détaille\n"+
+			"     les lignes invalides (une ligne fautive ne bloque pas les autres)",
 	))
 
 	sections.Add(helpSection("Bon de remise PDF",

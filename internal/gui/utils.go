@@ -11,7 +11,7 @@ import (
 func createAboutView() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Gestionnaire de Clés", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	version := widget.NewLabel("Version 3.1")
+	version := widget.NewLabel("Version " + AppVersion)
 	version.Alignment = fyne.TextAlignCenter
 
 	sep := widget.NewSeparator
@@ -28,9 +28,12 @@ func createAboutView() fyne.CanvasObject {
 	featTitle := widget.NewLabelWithStyle("Fonctionnalités principales", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	featList := container.NewVBox(
 		widget.NewLabel("  • Inventaire des clés avec liaison portes/accès"),
+		widget.NewLabel("  • Vues compactes dépliables pour les clés et les accès"),
+		widget.NewLabel("  • Ajustement rapide du stock d'une clé depuis la liste"),
 		widget.NewLabel("  • Prêt par besoin : sélection des portes → trousseau minimal calculé automatiquement"),
 		widget.NewLabel("  • Bon de remise PDF généré à chaque emprunt"),
 		widget.NewLabel("  • Détection des redondances d'accès"),
+		widget.NewLabel("  • Import/export CSV des détenteurs (avec modèle téléchargeable)"),
 		widget.NewLabel("  • Historique complet filtrable et exportable CSV"),
 		widget.NewLabel("  • Sauvegardes atomiques, restauration en un clic"),
 		widget.NewLabel("  • Utilisation en réseau local (multi-postes simultanés)"),
@@ -66,7 +69,7 @@ func createAboutView() fyne.CanvasObject {
 	)
 	licText.Wrapping = fyne.TextWrapWord
 
-	copyright := widget.NewLabel("© 2025 COLLET David — MIT License")
+	copyright := widget.NewLabel("© 2026 COLLET David — MIT License")
 	copyright.Alignment = fyne.TextAlignCenter
 
 	content := container.NewVBox(
