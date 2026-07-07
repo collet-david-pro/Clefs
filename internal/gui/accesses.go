@@ -10,6 +10,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// accessesCompactMode mémorise le mode d'affichage de la liste des accès
+// (compact = ligne dépliable, détaillé = card complète), conservé entre deux
+// rafraîchissements de la vue. Même principe que keysCompactMode.
+var accessesCompactMode bool
+
 // createAccessesView crée la vue de gestion des accès (ex-salles) avec filtres enrichis.
 func createAccessesView(a *App) fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Gérer les Accès", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
@@ -19,7 +24,12 @@ func createAccessesView(a *App) fyne.CanvasObject {
 	})
 	addBtn.Importance = widget.HighImportance
 
-	header := container.NewBorder(nil, nil, nil, addBtn, title)
+	toggleBtn := widget.NewButton(accessesToggleLabel(), func() {
+		accessesCompactMode = !accessesCompactMode
+		a.showAccesses()
+	})
+
+	header := container.NewBorder(nil, nil, nil, container.NewHBox(toggleBtn, addBtn), title)
 
 	buildings, _ := db.GetAllBuildings()
 	allAccesses, _ := db.GetAllAccesses()
@@ -69,30 +79,11 @@ func createAccessesView(a *App) fyne.CanvasObject {
 
 		if len(filtered) == 0 {
 			listContainer.Add(widget.NewLabel("Aucun accès trouvé pour ces filtres."))
+		} else if accessesCompactMode {
+			listContainer.Add(createAccessesCompactView(filtered, buildings, a))
 		} else {
 			for _, r := range filtered {
-				r := r
-				bName := ""
-				for _, b := range buildings {
-					if b.ID == r.BuildingID {
-						bName = b.Name
-						break
-					}
-				}
-				keys, _ := db.GetKeysForAccess(r.ID)
-				card := accessCard(r, bName, len(keys),
-					func() { showEditAccessDialog(a, r.ID) },
-					func() {
-						a.showConfirm("Supprimer", fmt.Sprintf("Supprimer l'accès %q ?", r.Name), func() {
-							if err := db.DeleteRoom(r.ID); err != nil {
-								a.showError("Erreur", err.Error())
-								return
-							}
-							a.showAccesses()
-						})
-					},
-				)
-				listContainer.Add(card)
+				listContainer.Add(accessDetailBlock(r, buildings, a))
 			}
 		}
 		listContainer.Refresh()
@@ -140,6 +131,66 @@ func filterAccesses(accesses []db.Room, buildings []db.Building, bFilter, fFilte
 		result = append(result, r)
 	}
 	return result
+}
+
+// accessesToggleLabel retourne le libellé du bouton de bascule compact/détaillé
+// (il annonce le mode vers lequel le clic fera basculer).
+func accessesToggleLabel() string {
+	if accessesCompactMode {
+		return "🗂 Vue détaillée"
+	}
+	return "📄 Vue compacte"
+}
+
+// buildingNameFor retourne le nom du bâtiment d'un accès, ou "" s'il est
+// introuvable.
+func buildingNameFor(r db.Room, buildings []db.Building) string {
+	for _, b := range buildings {
+		if b.ID == r.BuildingID {
+			return b.Name
+		}
+	}
+	return ""
+}
+
+// accessDetailBlock construit le bloc de détail complet d'un accès (card avec
+// méta-données, nombre de clés et actions Modifier/Supprimer), réutilisé par la
+// vue détaillée et par le contenu déplié de la vue compacte.
+func accessDetailBlock(r db.Room, buildings []db.Building, a *App) fyne.CanvasObject {
+	bName := buildingNameFor(r, buildings)
+	keys, _ := db.GetKeysForAccess(r.ID)
+	return accessCard(r, bName, len(keys),
+		func() { showEditAccessDialog(a, r.ID) },
+		func() {
+			a.showConfirm("Supprimer", fmt.Sprintf("Supprimer l'accès %q ?", r.Name), func() {
+				if err := db.DeleteRoom(r.ID); err != nil {
+					a.showError("Erreur", err.Error())
+					return
+				}
+				a.showAccesses()
+			})
+		},
+	)
+}
+
+// createAccessesCompactView crée la liste compacte des accès : un accordéon dont
+// chaque entrée affiche, repliée, le nom de l'accès et son nombre de clés, et
+// dépliée, le détail complet (identique à la vue détaillée). Réutilise le même
+// mécanisme d'expand/collapse que la vue clés.
+func createAccessesCompactView(accesses []db.Room, buildings []db.Building, a *App) fyne.CanvasObject {
+	acc := widget.NewAccordion()
+	acc.MultiOpen = true
+	for _, r := range accesses {
+		r := r
+		keys, _ := db.GetKeysForAccess(r.ID)
+		keyCount := len(keys)
+		summary := fmt.Sprintf("%s  —  %d clé(s)", r.Name, keyCount)
+		if bName := buildingNameFor(r, buildings); bName != "" {
+			summary = fmt.Sprintf("%s  ·  %s  —  %d clé(s)", r.Name, bName, keyCount)
+		}
+		acc.Append(widget.NewAccordionItem(summary, accessDetailBlock(r, buildings, a)))
+	}
+	return acc
 }
 
 // showAddAccessDialog affiche le formulaire d'ajout d'un accès

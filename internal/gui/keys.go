@@ -12,6 +12,12 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// keysCompactMode mémorise le mode d'affichage choisi pour la liste des clés
+// (compact = une ligne dépliable par clé, détaillé = card complète). L'état est
+// conservé entre deux rafraîchissements de la vue pour ne pas repartir du mode
+// par défaut à chaque action.
+var keysCompactMode bool
+
 // createKeysView crée la vue de gestion des clés
 func createKeysView(app *App) fyne.CanvasObject {
 	title := widget.NewLabelWithStyle("Gérer les Clés", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
@@ -29,7 +35,14 @@ func createKeysView(app *App) fyne.CanvasObject {
 		exportKeysCSV(app)
 	})
 
-	header := container.NewBorder(nil, nil, nil, container.NewHBox(csvBtn, stockReportBtn, addBtn), title)
+	// Bascule compact / détaillé. Le libellé décrit l'action à venir.
+	var toggleBtn *widget.Button
+	toggleBtn = widget.NewButton(keysToggleLabel(), func() {
+		keysCompactMode = !keysCompactMode
+		app.showKeys()
+	})
+
+	header := container.NewBorder(nil, nil, nil, container.NewHBox(toggleBtn, csvBtn, stockReportBtn, addBtn), title)
 
 	// Récupérer les clés avec disponibilité
 	keys, err := db.GetKeysWithAvailability()
@@ -40,7 +53,12 @@ func createKeysView(app *App) fyne.CanvasObject {
 		)
 	}
 
-	keysList := createKeysListView(keys, app)
+	var keysList fyne.CanvasObject
+	if keysCompactMode {
+		keysList = createKeysCompactView(keys, app)
+	} else {
+		keysList = createKeysListView(keys, app)
+	}
 
 	content := container.NewBorder(
 		header,
@@ -53,49 +71,82 @@ func createKeysView(app *App) fyne.CanvasObject {
 	return content
 }
 
-// createKeysListView crée la liste des clés avec accordéon
-// createKeysListView crée la liste des clés sous forme de cards plates.
-func createKeysListView(keys []db.KeyWithAvailability, app *App) fyne.CanvasObject {
-	list := container.NewVBox()
-	for _, k := range keys {
-		k := k
-		card := keyCard(k,
-			func() { // Emprunter — ouvre la vue prêt unifiée
-				app.showNewLoan()
-			},
-			func() { // Retour
-				showReturnDialog(app, k.ID)
-			},
-			func(newTotal int) { // Ajustement rapide du stock total
-				if newTotal < k.LoanedCount || newTotal < k.QuantityReserve {
-					app.showError("Erreur", fmt.Sprintf(
-						"Le stock total ne peut pas être inférieur aux clés sorties (%d) ni à la réserve (%d).",
-						k.LoanedCount, k.QuantityReserve))
-					return
-				}
-				if err := db.UpdateKeyQuantityTotal(k.ID, newTotal); err != nil {
-					app.showError("Erreur", fmt.Sprintf("Erreur lors de la mise à jour du stock: %v", err))
+// keysToggleLabel retourne le libellé du bouton de bascule selon le mode courant
+// (il annonce le mode vers lequel le clic fera basculer).
+func keysToggleLabel() string {
+	if keysCompactMode {
+		return "🗂 Vue détaillée"
+	}
+	return "📄 Vue compacte"
+}
+
+// keyDetailBlock construit le bloc de détail complet d'une clé (card + actions
+// Modifier/Supprimer), réutilisé tel quel par la vue détaillée et par le contenu
+// déplié de la vue compacte.
+func keyDetailBlock(k db.KeyWithAvailability, app *App) fyne.CanvasObject {
+	card := keyCard(k,
+		func() { // Emprunter — ouvre la vue prêt unifiée
+			app.showNewLoan()
+		},
+		func() { // Retour
+			showReturnDialog(app, k.ID)
+		},
+		func(newTotal int) { // Ajustement rapide du stock total
+			if newTotal < k.LoanedCount || newTotal < k.QuantityReserve {
+				app.showError("Erreur", fmt.Sprintf(
+					"Le stock total ne peut pas être inférieur aux clés sorties (%d) ni à la réserve (%d).",
+					k.LoanedCount, k.QuantityReserve))
+				return
+			}
+			if err := db.UpdateKeyQuantityTotal(k.ID, newTotal); err != nil {
+				app.showError("Erreur", fmt.Sprintf("Erreur lors de la mise à jour du stock: %v", err))
+				return
+			}
+			app.showKeys()
+		},
+	)
+	editBtn := widget.NewButton("Modifier", func() { showEditKeyDialog(app, k.ID) })
+	deleteBtn := widget.NewButton("Supprimer", func() {
+		app.showConfirm("Supprimer",
+			fmt.Sprintf("Supprimer la clé %s ?", k.Number),
+			func() {
+				if err := db.DeleteKey(k.ID); err != nil {
+					app.showError("Erreur", err.Error())
 					return
 				}
 				app.showKeys()
-			},
-		)
-		// Boutons modifier / supprimer en pied de card
-		editBtn := widget.NewButton("Modifier", func() { showEditKeyDialog(app, k.ID) })
-		deleteBtn := widget.NewButton("Supprimer", func() {
-			app.showConfirm("Supprimer",
-				fmt.Sprintf("Supprimer la clé %s ?", k.Number),
-				func() {
-					if err := db.DeleteKey(k.ID); err != nil {
-						app.showError("Erreur", err.Error())
-						return
-					}
-					app.showKeys()
-				})
-		})
-		deleteBtn.Importance = widget.DangerImportance
-		actions := container.NewHBox(editBtn, deleteBtn)
-		list.Add(container.NewVBox(card, container.NewPadded(actions), widget.NewSeparator()))
+			})
+	})
+	deleteBtn.Importance = widget.DangerImportance
+	actions := container.NewHBox(editBtn, deleteBtn)
+	return container.NewVBox(card, container.NewPadded(actions))
+}
+
+// createKeysCompactView crée la liste compacte des clés : un accordéon dont
+// chaque entrée affiche, repliée, l'identifiant et le stock de la clé, et
+// dépliée, le détail complet (identique à la vue détaillée). Plusieurs entrées
+// peuvent être ouvertes simultanément.
+func createKeysCompactView(keys []db.KeyWithAvailability, app *App) fyne.CanvasObject {
+	if len(keys) == 0 {
+		return container.NewVBox(widget.NewLabel("Aucune clé enregistrée."))
+	}
+	acc := widget.NewAccordion()
+	acc.MultiOpen = true
+	for _, k := range keys {
+		k := k
+		summary := fmt.Sprintf("%s  —  stock %d/%d (dispo/total)", k.Number, k.AvailableCount, k.QuantityTotal)
+		acc.Append(widget.NewAccordionItem(summary, keyDetailBlock(k, app)))
+	}
+	return acc
+}
+
+// createKeysListView crée la liste des clés sous forme de cards plates
+// détaillées (mode détaillé). Chaque clé occupe une card complète suivie de ses
+// actions.
+func createKeysListView(keys []db.KeyWithAvailability, app *App) fyne.CanvasObject {
+	list := container.NewVBox()
+	for _, k := range keys {
+		list.Add(container.NewVBox(keyDetailBlock(k, app), widget.NewSeparator()))
 	}
 	if len(list.Objects) == 0 {
 		list.Add(widget.NewLabel("Aucune clé enregistrée."))
