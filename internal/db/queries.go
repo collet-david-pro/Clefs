@@ -116,6 +116,13 @@ func UpdateKey(k *Key, roomIDs []int) error {
 	return tx.Commit()
 }
 
+// UpdateKeyQuantityTotal met à jour uniquement le stock total d'une clé, sans
+// toucher aux associations clé↔salle (contrairement à UpdateKey).
+func UpdateKeyQuantityTotal(keyID int, newTotal int) error {
+	_, err := DB.Exec(`UPDATE keys SET quantity_total = ? WHERE id = ?`, newTotal, keyID)
+	return err
+}
+
 // DeleteKey supprime une clé
 func DeleteKey(id int) error {
 	_, err := DB.Exec(`DELETE FROM keys WHERE id = ?`, id)

@@ -7,61 +7,92 @@ import (
 	"fyne.io/fyne/v2/theme"
 )
 
-// SimpleTheme est un thème simple et lisible basé sur le thème par défaut
+// SimpleTheme est le thème visuel de l'application.
+//
+// Il dérive du thème clair par défaut de Fyne et ne surcharge que les éléments
+// qui donnent à l'application son identité : palette de couleurs (bleu indigo
+// moderne), arrondis plus marqués, espacements aérés et typographie légèrement
+// agrandie. Les couleurs exposées via le UI kit (ui_kit.go) reprennent la même
+// palette pour rester cohérentes dans tout le projet.
 type SimpleTheme struct{}
 
-// Color retourne les couleurs du thème
+// Color retourne la couleur associée à un nom de rôle de l'interface.
 func (s SimpleTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
-	// Utiliser les couleurs par défaut de Fyne pour la plupart des éléments
-	// et personnaliser seulement quelques couleurs clés
 	switch name {
 	case theme.ColorNamePrimary:
-		return color.NRGBA{R: 0, G: 123, B: 255, A: 255} // Bleu moderne
+		return colorPrimary
+	case theme.ColorNameHover:
+		return colorPrimaryHover
+	case theme.ColorNameFocus:
+		return colorPrimary
+	case theme.ColorNameSelection:
+		return color.NRGBA{R: colorPrimary.R, G: colorPrimary.G, B: colorPrimary.B, A: 40}
 	case theme.ColorNameButton:
-		return color.NRGBA{R: 0, G: 123, B: 255, A: 255} // Bleu pour les boutons
+		// Boutons "neutres" : gris très clair, pour que seuls les boutons
+		// Importance=High (qui utilisent Primary) ressortent en couleur.
+		return colorSurfaceAlt
 	case theme.ColorNameBackground:
-		if variant == theme.VariantLight {
-			return color.NRGBA{R: 255, G: 255, B: 255, A: 255} // Blanc
-		}
-		return theme.DefaultTheme().Color(name, variant)
+		return colorBackground
 	case theme.ColorNameForeground:
-		if variant == theme.VariantLight {
-			return color.NRGBA{R: 0, G: 0, B: 0, A: 255} // Noir
-		}
-		return theme.DefaultTheme().Color(name, variant)
+		return colorText
+	case theme.ColorNameInputBackground:
+		return colorSurface
+	case theme.ColorNamePlaceHolder:
+		return colorTextMuted
+	case theme.ColorNameSeparator:
+		return colorBorder
+	case theme.ColorNameError:
+		return colorDanger
+	case theme.ColorNameSuccess:
+		return colorSuccess
+	case theme.ColorNameWarning:
+		return colorWarning
 	default:
-		// Pour tout le reste, utiliser le thème par défaut
 		return theme.DefaultTheme().Color(name, variant)
 	}
 }
 
-// Font retourne la police du thème
+// Font retourne la police (police par défaut de Fyne, très lisible).
 func (s SimpleTheme) Font(style fyne.TextStyle) fyne.Resource {
 	return theme.DefaultTheme().Font(style)
 }
 
-// Icon retourne l'icône du thème
+// Icon retourne l'icône associée à un nom (jeu d'icônes par défaut de Fyne).
 func (s SimpleTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
 	return theme.DefaultTheme().Icon(name)
 }
 
-// Size retourne les tailles du thème
+// Size retourne la dimension associée à un nom (espacements, rayons, polices).
+// On agrandit légèrement les paddings et les rayons d'arrondi pour un rendu
+// plus aéré et plus moderne que le thème par défaut.
 func (s SimpleTheme) Size(name fyne.ThemeSizeName) float32 {
 	switch name {
 	case theme.SizeNamePadding:
-		return 6
+		return 8
+	case theme.SizeNameInnerPadding:
+		return 10
 	case theme.SizeNameInlineIcon:
-		return 20
+		return 22
 	case theme.SizeNameScrollBar:
-		return 16
+		return 12
 	case theme.SizeNameScrollBarSmall:
-		return 3
+		return 4
+	case theme.SizeNameText:
+		return 14
+	case theme.SizeNameHeadingText:
+		return 22
+	case theme.SizeNameSubHeadingText:
+		return 17
+	case theme.SizeNameSelectionRadius:
+		return 8
+	case theme.SizeNameInputRadius:
+		return 8
 	default:
 		return theme.DefaultTheme().Size(name)
 	}
 }
 
-// ApplySimpleTheme applique le thème simple à l'application
+// ApplySimpleTheme applique le thème à l'application.
 func ApplySimpleTheme(a fyne.App) {
 	a.Settings().SetTheme(&SimpleTheme{})
 }

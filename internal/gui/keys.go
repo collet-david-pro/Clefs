@@ -66,6 +66,19 @@ func createKeysListView(keys []db.KeyWithAvailability, app *App) fyne.CanvasObje
 			func() { // Retour
 				showReturnDialog(app, k.ID)
 			},
+			func(newTotal int) { // Ajustement rapide du stock total
+				if newTotal < k.LoanedCount || newTotal < k.QuantityReserve {
+					app.showError("Erreur", fmt.Sprintf(
+						"Le stock total ne peut pas être inférieur aux clés sorties (%d) ni à la réserve (%d).",
+						k.LoanedCount, k.QuantityReserve))
+					return
+				}
+				if err := db.UpdateKeyQuantityTotal(k.ID, newTotal); err != nil {
+					app.showError("Erreur", fmt.Sprintf("Erreur lors de la mise à jour du stock: %v", err))
+					return
+				}
+				app.showKeys()
+			},
 		)
 		// Boutons modifier / supprimer en pied de card
 		editBtn := widget.NewButton("Modifier", func() { showEditKeyDialog(app, k.ID) })

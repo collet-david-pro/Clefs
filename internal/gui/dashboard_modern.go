@@ -6,33 +6,32 @@ import (
 	"log"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
-// createModernDashboard crée un tableau de bord moderne avec des cards et statistiques
+// createModernDashboard crée le tableau de bord : en-tête avec actions,
+// rangée de tuiles de statistiques, bandeaux d'alerte éventuels, puis le
+// tableau des clés qui occupe l'espace restant.
 func createModernDashboard(app *App) fyne.CanvasObject {
-	// En-tête simplifié
-	titleLabel := widget.NewLabelWithStyle("Tableau de Bord", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-
-	newLoanBtn := widget.NewButton("Nouvel emprunt", func() {
+	newLoanBtn := widget.NewButtonWithIcon("Nouvel emprunt", theme.ContentAddIcon(), func() {
 		app.showNewLoan()
 	})
 	newLoanBtn.Importance = widget.HighImportance
 
-	refreshBtn := widget.NewButton("Rafraîchir", func() {
+	refreshBtn := widget.NewButtonWithIcon("Rafraîchir", theme.ViewRefreshIcon(), func() {
 		app.showDashboard()
 	})
 
-	headerButtons := container.NewHBox(newLoanBtn, refreshBtn)
-	header := container.NewBorder(nil, nil, titleLabel, headerButtons)
+	header := pageHeader("Tableau de bord", "Vue d'ensemble du parc de clés",
+		container.NewHBox(refreshBtn, newLoanBtn))
 
 	// Récupérer les statistiques
 	stats := getStatistics()
-
-	// Créer les cards de statistiques simplifiées
-	statsCards := createStatisticsCards(stats)
+	statsRow := createStatisticsCards(stats)
 
 	// Récupérer les clés avec disponibilité
 	keys, err := db.GetKeysWithAvailability()
@@ -44,24 +43,24 @@ func createModernDashboard(app *App) fyne.CanvasObject {
 		)
 	}
 
-	// Créer le tableau simplifié
 	keysTable := createSimpleKeysTable(keys, app)
+	tableTitle := canvas.NewText("Inventaire des clés", colorText)
+	tableTitle.TextStyle = fyne.TextStyle{Bold: true}
+	tableTitle.TextSize = 16
 
-	// Layout principal simplifié
 	topContent := container.NewVBox(
-		container.NewPadded(header),
-		widget.NewSeparator(),
-		container.NewPadded(statsCards),
-		widget.NewSeparator(),
+		header,
+		widget.NewLabel(""),
+		statsRow,
+		widget.NewLabel(""),
+		tableTitle,
 	)
 
-	// Utiliser un Border layout pour que le tableau prenne tout l'espace restant
+	// Le tableau (dans une carte) prend tout l'espace vertical restant.
 	content := container.NewBorder(
-		topContent,                     // Haut
-		nil,                            // Bas
-		nil,                            // Gauche
-		nil,                            // Droite
-		container.NewPadded(keysTable), // Centre (le tableau)
+		topContent,
+		nil, nil, nil,
+		card(keysTable),
 	)
 
 	return content
@@ -92,35 +91,36 @@ func getStatistics() map[string]interface{} {
 	return stats
 }
 
-// createStatisticsCards crée les cards de statistiques avec alertes retards et redondances
+// createStatisticsCards crée la rangée de tuiles de statistiques (4 colonnes)
+// suivie des éventuels bandeaux d'alerte (retards, redondances).
 func createStatisticsCards(stats map[string]interface{}) fyne.CanvasObject {
-	totalKeysLabel := widget.NewLabel(fmt.Sprintf("🔑 Total clés: %d", stats["totalKeys"]))
-	activeLoansLabel := widget.NewLabel(fmt.Sprintf("📤 Emprunts actifs: %d", stats["activeLoans"]))
-	availableKeysLabel := widget.NewLabel(fmt.Sprintf("✅ Disponibles: %d", stats["availableKeys"]))
-	borrowersLabel := widget.NewLabel(fmt.Sprintf("👥 Détenteurs: %d", stats["totalBorrowers"]))
-
-	row1 := container.NewHBox(
-		totalKeysLabel, widget.NewSeparator(),
-		activeLoansLabel, widget.NewSeparator(),
-		availableKeysLabel, widget.NewSeparator(),
-		borrowersLabel,
+	tiles := container.NewGridWithColumns(4,
+		statTile(fmt.Sprintf("%d", stats["totalKeys"]), "Clés au total", colorPrimary),
+		statTile(fmt.Sprintf("%d", stats["activeLoans"]), "Emprunts actifs", colorWarning),
+		statTile(fmt.Sprintf("%d", stats["availableKeys"]), "Disponibles", colorSuccess),
+		statTile(fmt.Sprintf("%d", stats["totalBorrowers"]), "Détenteurs", colorTextMuted),
 	)
 
-	// Alertes — visibles seulement si > 0
-	alertsBox := container.NewVBox()
+	box := container.NewVBox(tiles)
+
+	// Alertes — affichées en bandeaux colorés seulement si > 0.
 	if n, _ := stats["overdueLoans"].(int); n > 0 {
-		lbl := widget.NewLabelWithStyle(
-			fmt.Sprintf("🔴 %d prêt(s) EN RETARD — vérifiez l'onglet Emprunts en Cours", n),
-			fyne.TextAlignLeading, fyne.TextStyle{Bold: true},
-		)
-		alertsBox.Add(lbl)
+		icon := widget.NewIcon(theme.WarningIcon())
+		msg := canvas.NewText(
+			fmt.Sprintf("%d prêt(s) en retard — voir « Emprunts en cours »", n), colorDanger)
+		msg.TextStyle = fyne.TextStyle{Bold: true}
+		box.Add(widget.NewLabel(""))
+		box.Add(coloredCard(container.NewHBox(icon, msg), colorDangerSoft, colorDanger))
 	}
 	if n, _ := stats["redundancies"].(int); n > 0 {
-		lbl := widget.NewLabel(fmt.Sprintf("⚠️ %d détenteur(s) avec des accès redondants", n))
-		alertsBox.Add(lbl)
+		icon := widget.NewIcon(theme.InfoIcon())
+		msg := canvas.NewText(
+			fmt.Sprintf("%d détenteur(s) avec des accès redondants", n), colorWarning)
+		box.Add(widget.NewLabel(""))
+		box.Add(coloredCard(container.NewHBox(icon, msg), colorWarningSoft, colorWarning))
 	}
 
-	return container.NewVBox(container.NewCenter(row1), alertsBox)
+	return box
 }
 
 // createSimpleKeysTable crée un tableau simple et lisible des clés

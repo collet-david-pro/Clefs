@@ -23,7 +23,10 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -60,80 +63,89 @@ func (a *App) Run() {
 	a.window.ShowAndRun()
 }
 
-// createMenu crée la barre de navigation latérale
+// navButton fabrique une entrée de menu : icône + libellé, alignée à gauche.
+// Quand viewID correspond à la vue active (a.currentView), l'entrée est mise en
+// surbrillance (importance haute = fond coloré) pour indiquer où l'on se trouve.
+func (a *App) navButton(label string, icon fyne.Resource, viewID string, action func()) *widget.Button {
+	btn := widget.NewButtonWithIcon(label, icon, action)
+	btn.Alignment = widget.ButtonAlignLeading
+	if a.currentView == viewID {
+		btn.Importance = widget.HighImportance
+	} else {
+		btn.Importance = widget.LowImportance
+	}
+	return btn
+}
+
+// menuSection retourne un titre de section discret (gris, petites majuscules).
+func menuSection(title string) fyne.CanvasObject {
+	t := canvas.NewText(title, colorTextMuted)
+	t.TextStyle = fyne.TextStyle{Bold: true}
+	t.TextSize = 11
+	return container.NewPadded(t)
+}
+
+// createMenu crée la barre de navigation latérale.
+//
+// Structure : un en-tête (logo + nom), puis quatre sections (Prêts,
+// Référentiels, Consultation, Application), chacune faite d'entrées navButton
+// avec icône. L'entrée correspondant à la vue courante est surlignée.
 func (a *App) createMenu() fyne.CanvasObject {
-	title := widget.NewLabelWithStyle("Gestionnaire de Clés", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-
-	sep := widget.NewSeparator
-
-	// Section Prêts
-	sectionPrets := widget.NewLabelWithStyle("Prêts", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	dashboardBtn := widget.NewButton("Tableau de bord", func() { a.showDashboard() })
-	dashboardBtn.Importance = widget.HighImportance
-	newLoanBtn := widget.NewButton("Nouvel emprunt", func() { a.showNewLoan() })
-	newLoanBtn.Importance = widget.HighImportance
-	activeLoansBtn := widget.NewButton("Emprunts en cours", func() { a.showActiveLoans() })
-	historyBtn := widget.NewButton("Historique", func() { a.showHistory() })
-
-	// Section Référentiels
-	sectionRef := widget.NewLabelWithStyle("Référentiels", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	keysBtn := widget.NewButton("Clés", func() { a.showKeys() })
-	borrowersBtn := widget.NewButton("Détenteurs", func() { a.showBorrowers() })
-	accessesBtn := widget.NewButton("Accès", func() { a.showAccesses() })
-	buildingsBtn := widget.NewButton("Bâtiments", func() { a.showBuildings() })
-
-	// Section Consultation
-	sectionConsult := widget.NewLabelWithStyle("Consultation", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	whoBtn := widget.NewButton("Qui a quoi ?", func() { a.showWhoHasWhat() })
-	buildingViewBtn := widget.NewButton("Par bâtiment", func() { a.showKeysByBuilding() })
-	redundBtn := widget.NewButton("Redondances", func() { a.showRedundancies() })
-	keyPlanBtn := widget.NewButton("Plan de clés", func() { a.showKeyPlan() })
-
-	// Section Application
-	sectionApp := widget.NewLabelWithStyle("Application", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	configBtn := widget.NewButton("Configuration", func() { a.showConfig() })
-	helpBtn := widget.NewButton("Aide", func() { a.showHelp() })
-	aboutBtn := widget.NewButton("A propos", func() { a.showAbout() })
-	quitBtn := widget.NewButton("Quitter", func() { a.quit() })
-	quitBtn.Importance = widget.DangerImportance
-
-	menuBox := container.NewVBox(
-		container.NewPadded(title),
-		sep(),
-		container.NewPadded(container.NewVBox(
-			sectionPrets,
-			dashboardBtn,
-			newLoanBtn,
-			activeLoansBtn,
-			historyBtn,
-		)),
-		sep(),
-		container.NewPadded(container.NewVBox(
-			sectionRef,
-			keysBtn,
-			borrowersBtn,
-			accessesBtn,
-			buildingsBtn,
-		)),
-		sep(),
-		container.NewPadded(container.NewVBox(
-			sectionConsult,
-			whoBtn,
-			buildingViewBtn,
-			redundBtn,
-			keyPlanBtn,
-		)),
-		sep(),
-		container.NewPadded(container.NewVBox(
-			sectionApp,
-			configBtn,
-			helpBtn,
-			aboutBtn,
-			quitBtn,
-		)),
+	// En-tête : pastille colorée façon logo + nom de l'application.
+	logo := canvas.NewRectangle(colorPrimary)
+	logo.CornerRadius = 8
+	logo.SetMinSize(fyne.NewSize(34, 34))
+	logoIcon := widget.NewIcon(theme.NewThemedResource(theme.HomeIcon()))
+	appName := canvas.NewText("Gestionnaire de Clés", colorText)
+	appName.TextStyle = fyne.TextStyle{Bold: true}
+	appName.TextSize = 15
+	header := container.NewHBox(
+		container.NewStack(logo, container.NewCenter(logoIcon)),
+		container.NewVBox(layout.NewSpacer(), appName, layout.NewSpacer()),
 	)
 
-	return container.NewVScroll(menuBox)
+	menuBox := container.NewVBox(
+		container.NewPadded(header),
+
+		menuSection("PRÊTS"),
+		a.navButton("Tableau de bord", theme.HomeIcon(), "dashboard", func() { a.showDashboard() }),
+		a.navButton("Nouvel emprunt", theme.ContentAddIcon(), "newLoan", func() { a.showNewLoan() }),
+		a.navButton("Emprunts en cours", theme.MailSendIcon(), "activeLoans", func() { a.showActiveLoans() }),
+		a.navButton("Historique", theme.HistoryIcon(), "history", func() { a.showHistory() }),
+
+		menuSection("RÉFÉRENTIELS"),
+		a.navButton("Clés", theme.LoginIcon(), "keys", func() { a.showKeys() }),
+		a.navButton("Détenteurs", theme.AccountIcon(), "borrowers", func() { a.showBorrowers() }),
+		a.navButton("Accès", theme.FolderOpenIcon(), "accesses", func() { a.showAccesses() }),
+		a.navButton("Bâtiments", theme.StorageIcon(), "buildings", func() { a.showBuildings() }),
+
+		menuSection("CONSULTATION"),
+		a.navButton("Qui a quoi ?", theme.SearchIcon(), "whoHasWhat", func() { a.showWhoHasWhat() }),
+		a.navButton("Par bâtiment", theme.GridIcon(), "keysByBuilding", func() { a.showKeysByBuilding() }),
+		a.navButton("Redondances", theme.WarningIcon(), "redundancies", func() { a.showRedundancies() }),
+		a.navButton("Plan de clés", theme.DocumentIcon(), "keyPlan", func() { a.showKeyPlan() }),
+
+		menuSection("APPLICATION"),
+		a.navButton("Configuration", theme.SettingsIcon(), "config", func() { a.showConfig() }),
+		a.navButton("Aide", theme.HelpIcon(), "help", func() { a.showHelp() }),
+		a.navButton("À propos", theme.InfoIcon(), "about", func() { a.showAbout() }),
+	)
+
+	// Bouton Quitter épinglé en bas de la barre.
+	quitBtn := widget.NewButtonWithIcon("Quitter", theme.LogoutIcon(), func() { a.quit() })
+	quitBtn.Alignment = widget.ButtonAlignLeading
+	quitBtn.Importance = widget.LowImportance
+
+	// Fond légèrement distinct pour la barre latérale.
+	sidebarBg := canvas.NewRectangle(colorSurface)
+
+	inner := container.NewBorder(
+		nil,
+		container.NewPadded(quitBtn),
+		nil, nil,
+		container.NewVScroll(menuBox),
+	)
+	return container.NewStack(sidebarBg, inner)
 }
 
 // setContent met à jour le contenu principal et reconstruit le menu latéral.
@@ -141,8 +153,11 @@ func (a *App) createMenu() fyne.CanvasObject {
 func (a *App) setContent(content fyne.CanvasObject, viewName string) {
 	a.currentView = viewName
 	a.content = container.NewMax(content)
-	menu := a.createMenu()
-	a.window.SetContent(container.NewBorder(nil, nil, menu, nil, a.content))
+	menu := fixedWidth(a.createMenu(), 240)
+	// Le contenu central est posé sur le fond gris clair de l'application.
+	pageBg := canvas.NewRectangle(colorBackground)
+	page := container.NewStack(pageBg, container.NewPadded(a.content))
+	a.window.SetContent(container.NewBorder(nil, nil, menu, nil, page))
 }
 
 // --- Méthodes de navigation ---
