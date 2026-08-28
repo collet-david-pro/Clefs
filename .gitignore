@@ -44,3 +44,6 @@ go.work
 
 # Build scripts
 compilationmacos.sh
+
+# Notes de travail locales (non publiées)
+maj.md
