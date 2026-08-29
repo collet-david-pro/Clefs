@@ -2,7 +2,7 @@
 
 Application de bureau native pour la gestion du parc de clés du **Collège Victor Hugo — Chauny (02300)**.
 
-Développée en Go + Fyne, elle fonctionne comme un exécutable unique Windows, sans installation ni connexion internet.
+Développée en Go + Fyne, elle fonctionne comme un exécutable unique (Windows et macOS Apple Silicon), sans installation ni connexion internet.
 
 ---
 
@@ -32,6 +32,11 @@ Développée en Go + Fyne, elle fonctionne comme un exécutable unique Windows, 
 ### Retour de clé
 - Depuis le tableau de bord ou les emprunts en cours
 
+### Alerte d'inventaire
+- Le sur-prêt est **autorisé** (prêter plus d'exemplaires que le stock déclaré reste possible)
+- La clé concernée est signalée partout : bandeau rouge « Erreur d'inventaire, vérifier le stock » sur le tableau de bord et la vue clés, badge sur la card, avertissement dans la confirmation de prêt
+- À la saisie manuelle, les valeurs incohérentes sont refusées (quantités négatives, réserve > total)
+
 ### Détection des redondances
 - Signal visuel si un détenteur possède plusieurs clés ouvrant les mêmes portes
 - Vue dédiée accessible depuis le menu Consultation
@@ -53,6 +58,7 @@ Développée en Go + Fyne, elle fonctionne comme un exécutable unique Windows, 
 
 ### Génération de PDF
 - Bon de remise : clés remises, accès couverts, agent, date de retour prévue, zone signature
+- **Réédition en un clic** d'un bon complet à jour (toutes les clés détenues) — utile après avoir ajouté une clé à un détenteur déjà emprunteur
 - Rapport des clés sorties
 - Bilan du stock de clés
 - Plan de clés
@@ -76,12 +82,22 @@ Développée en Go + Fyne, elle fonctionne comme un exécutable unique Windows, 
 
 ## Installation
 
+### Windows
+
 1. Aller sur la page [**Releases**](https://github.com/collet-david-pro/Clefs/releases)
 2. Télécharger `clefs-windows-amd64.zip`
 3. Décompresser dans un **dossier dédié** (ex. `C:\Clefs\`)
 4. Double-cliquer sur `clefs-windows-amd64.exe`
 
 > **Windows Defender peut afficher une alerte** car l'exécutable n'est pas signé. Cliquer sur "Informations complémentaires" → "Exécuter quand même".
+
+### macOS (Apple Silicon)
+
+1. Télécharger `clefs-macos-arm64.zip` depuis la même page Releases
+2. Décompresser dans un dossier dédié (ex. `~/Documents/Clefs/`)
+3. Dans un terminal : `chmod +x clefs-macos-arm64` puis `./clefs-macos-arm64`
+
+> **macOS peut bloquer le premier lancement** car le binaire n'est ni signé ni notarisé : faire **clic droit → Ouvrir**, ou retirer la quarantaine avec `xattr -d com.apple.quarantine clefs-macos-arm64`.
 
 ---
 
@@ -126,7 +142,7 @@ Placer le dossier sur un partage réseau (SMB). Plusieurs postes peuvent ouvrir 
 - **Interface graphique :** Fyne v2.4.5
 - **Base de données :** SQLite (modernc.org/sqlite — pur Go, sans CGO)
 - **PDF :** gofpdf
-- **Tests :** package `testing` standard
+- **Tests :** package `testing` standard — logique métier (`internal/business`) et couche données (`internal/db` : prêts, sauvegarde/restauration, import V2, migrations)
 
 ### Structure du projet
 
@@ -139,11 +155,10 @@ internal/
     database.go       Connexion SQLite, PRAGMA, migrations
     models.go         Structs (Key, Room, Borrower, Loan...)
     queries.go        Toutes les requêtes SQL
-    store.go          Interface Store
-    store_sqlite.go   Implémentation SQLiteStore
     migrations.go     Migrations de schéma versionnées
-    backup.go         Sauvegarde VACUUM INTO, import Python
+    backup.go         Sauvegarde VACUUM INTO, restauration, import Python
     import_v2.go      Import base V2
+    *_test.go         Tests (base SQLite temporaire par test)
 
   business/
     loan_advisor.go   Algorithme Set Cover (prêt par besoin)
@@ -154,20 +169,25 @@ internal/
 
   gui/
     app.go            Application principale, navigation
-    dashboard_modern.go
-    new_loan_view.go  Vue prêt unifiée (portes + trousseau)
+    version.go        Constante de version centralisée (AppVersion)
+    dashboard_modern.go   Tableau de bord (stats, alertes)
+    new_loan_view.go  Vue prêt unifiée (portes + trousseau) + bon de remise
     loan_dialogs.go   Dialogue retour de clé
     accesses.go       Gestion des accès (portes/zones)
     keys.go           Gestion des clés
-    borrowers.go      Gestion des détenteurs
-    loans.go          Emprunts actifs
+    borrowers.go      Gestion des détenteurs (+ import/export CSV)
+    loans.go          Emprunts actifs, réédition du bon
     history.go        Historique filtrable
     views_transversal.go  Vues rapides (consultation)
     redundancy_view.go    Vue redondances
-    widgets.go        Composants réutilisables (cards, checkrows)
+    ui_kit.go         Identité visuelle (palette, cards, badges)
+    widgets.go        Composants réutilisables (keyCard, bannières)
+    backups.go        Gestion des sauvegardes
+    buildings.go      Gestion des bâtiments
     config.go         Configuration, sauvegarde, import
     keyplan.go        Plan de clés
     help.go           Mode d'emploi
+    utils.go          À propos, helpers de dialogue
     theme_simple.go   Thème visuel
 
   pdf/
@@ -181,13 +201,13 @@ internal/
 go run ./cmd/main.go
 ```
 
-### Créer une release Windows
+### Créer une release (Windows + macOS)
 
 ```bash
-./create-release.sh 3.1.0
+./create-release.sh 3.3.0
 ```
 
-Le script committe les modifications, crée le tag et pousse vers GitHub. Le workflow Actions compile l'exécutable Windows et publie la release automatiquement.
+Le script committe les modifications, crée le tag et pousse vers GitHub. Le workflow Actions compile les exécutables Windows x64 et macOS Apple Silicon, puis publie la release automatiquement.
 
 ---
 

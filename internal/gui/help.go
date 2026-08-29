@@ -28,8 +28,11 @@ func createHelpView() fyne.CanvasObject {
 			"  • Double-cliquez sur le .exe pour lancer\n"+
 			"  • Si Windows Defender bloque : 'Informations complémentaires' > 'Exécuter quand même'\n"+
 			"  • Mise à jour : remplacez simplement l'ancien .exe par le nouveau\n\n"+
-			"macOS (développement) :\n"+
-			"  • Terminal : chmod +x clefs-macos-arm64 puis ./clefs-macos-arm64",
+			"macOS (Apple Silicon) :\n"+
+			"  • Téléchargez clefs-macos-arm64.zip depuis la page Releases\n"+
+			"  • Terminal : chmod +x clefs-macos-arm64 puis ./clefs-macos-arm64\n"+
+			"  • Si macOS bloque l'ouverture (binaire non signé) : clic droit >\n"+
+			"    Ouvrir, ou xattr -d com.apple.quarantine clefs-macos-arm64",
 	))
 
 	sections.Add(helpSection("Navigation — menu latéral",
@@ -60,6 +63,8 @@ func createHelpView() fyne.CanvasObject {
 			"Statistiques (en haut) :\n"+
 			"  • Total clés, emprunts actifs, clés disponibles, nombre de détenteurs\n\n"+
 			"Alertes automatiques (si applicable) :\n"+
+			"  • Erreur d'inventaire : plus d'exemplaires sortis que le stock\n"+
+			"    utilisable d'une clé (sur-prêt) — vérifier le stock\n"+
 			"  • Prêts en retard (date de retour prévue dépassée)\n"+
 			"  • Détenteurs avec accès redondants\n\n"+
 			"Tableau des clés :\n"+
@@ -118,6 +123,13 @@ func createHelpView() fyne.CanvasObject {
 			"  4. Enregistrez\n\n"+
 			"Formule disponibilité :\n"+
 			"  Disponible = Total − Réserve − Emprunts en cours\n\n"+
+			"Sur-prêt et erreur d'inventaire :\n"+
+			"  • Prêter plus d'exemplaires que le stock reste possible (voulu) ;\n"+
+			"    la clé passe alors en 'Erreur d'inventaire' : badge rouge sur sa\n"+
+			"    card, préfixe ⚠ en vue compacte, bandeau en haut de la vue et du\n"+
+			"    tableau de bord — vérifiez le stock réel puis corrigez le total\n"+
+			"  • À la saisie, la réserve ne peut pas dépasser le total (erreur de\n"+
+			"    frappe bloquée) ; les nombres négatifs sont refusés\n\n"+
 			"Ajustement rapide du stock :\n"+
 			"  • Dans la liste, chaque clé propose un curseur + champ pour modifier\n"+
 			"    directement le stock total, sans ouvrir le formulaire complet\n"+
@@ -222,6 +234,12 @@ func createHelpView() fyne.CanvasObject {
 			"  • Type de prêt (ponctuel / permanent)\n"+
 			"  • Zone de signature\n\n"+
 			"Fichier enregistré dans documents/ avec horodatage et nom du détenteur.\n\n"+
+			"Rééditer un bon à jour :\n"+
+			"  • Après avoir ajouté une clé à quelqu'un qui avait déjà un emprunt,\n"+
+			"    utilisez le bouton 'Rééditer le bon' (Référentiels > Détenteurs,\n"+
+			"    ou Prêts > Emprunts en cours)\n"+
+			"  • Un bon complet couvrant TOUTES les clés actuellement détenues est\n"+
+			"    régénéré dans documents/, accès couverts inclus\n\n"+
 			"Plan de clés (Consultation > Plan de clés) :\n"+
 			"  • Vue hiérarchique bâtiment > salle > clés\n"+
 			"  • Export PDF du plan complet",

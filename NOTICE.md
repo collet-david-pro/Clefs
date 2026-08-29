@@ -1,5 +1,7 @@
 # NOTICE TECHNIQUE — Gestionnaire de Clés (V3)
 
+> Document à jour pour la version 3.3.0.
+
 > **Note importante : code intégralement généré par IA.**
 > L'ensemble de cette application (architecture, code Go, requêtes SQL,
 > interface graphique, tests et documentation) a été **produit par une
@@ -181,6 +183,14 @@ Toutes les requêtes SQL sont ici, regroupées par entité. Conventions :
   ligne SQL → struct (équivalent d'un `fetchAll` typé).
 - **Requêtes paramétrées partout** (`?`) : aucune concaténation de variable dans
   le SQL → pas d'injection SQL possible.
+- `CheckInventoryAnomalies` liste les clés en **sur-prêt** (disponible négatif).
+  Règle métier importante : le sur-prêt est *autorisé* — aucune requête ne bloque
+  un prêt au-delà du stock ; l'anomalie est seulement signalée à l'écran
+  (« erreur d'inventaire, vérifier le stock »). Ne pas « corriger » cela en
+  ajoutant une contrainte : c'est un choix délibéré, verrouillé par
+  `TestOverloanAllowed`.
+- `CreateMultipleLoans` retourne les IDs des prêts créés : c'est ce qui permet
+  au bon de remise PDF de cibler exactement les prêts de la remise en cours.
 
 ### 4.6 Migrations (`migrations.go`)
 
@@ -196,6 +206,28 @@ C'est le même principe que les migrations Laravel/Rails/Knex.
 
 `BackupDatabase` utilise `VACUUM INTO` plutôt qu'une copie de fichier : c'est
 **atomique** et sûr même si quelqu'un écrit pendant la sauvegarde.
+
+Piège connu : `VACUUM INTO` passe par la **connexion ouverte**. Dans
+`RestoreDatabase`, la copie de sécurité doit donc être prise *avant* de fermer
+la connexion — l'ordre inverse a rendu la restauration inopérante jusqu'en
+3.2.1 (corrigé en 3.3.0, verrouillé par `TestBackupAndRestore`).
+
+### 4.8 Garantie de compatibilité des sauvegardes (règle absolue)
+
+Une sauvegarde d'une ancienne version doit TOUJOURS pouvoir être restaurée ou
+importée dans la version courante. Concrètement, pour toute évolution du
+schéma :
+
+- uniquement des `ALTER TABLE ... ADD COLUMN` via `migrations.go` — jamais de
+  suppression/renommage de colonne, jamais de contrainte `CHECK` ajoutée à une
+  table existante (SQLite l'interdirait de toute façon sans reconstruire la
+  table, ce qui casserait la restauration de bases contenant des données
+  « hors norme », par ex. un stock en sur-prêt) ;
+- les validations de saisie vivent dans l'interface (`internal/gui`), pas dans
+  le schéma ;
+- trois chemins d'entrée sont couverts par les tests et doivent le rester :
+  `RestoreDatabase` (sauvegardes 3.x), `ImportFromV2` (bases V2) et
+  `ImportFromPythonDB` (bases V1).
 
 ---
 
@@ -297,6 +329,11 @@ Logique notable :
   Toute chaîne accentuée passe par le traducteur Unicode
   (`p.UnicodeTranslatorFromDescriptor("")`) car les polices PDF de base sont en
   Latin-1.
+- **Bon de remise** : généré de façon *synchrone* à la validation d'un emprunt
+  (`generateHandoverReceipt`, `internal/gui/new_loan_view.go`) — une erreur de
+  génération s'affiche dans la confirmation. Le même helper sert la
+  **réédition** (bouton « Rééditer le bon », fiche détenteur et emprunts en
+  cours) : `loanIDs` vide → bon complet couvrant tous les prêts actifs.
 - **CSV** (`export/csv.go`) : UTF-8 **avec BOM** + séparateur `;`. C'est ce qui
   permet à Excel français d'ouvrir le fichier directement, accents corrects et
   colonnes séparées, sans assistant d'import.
@@ -315,7 +352,10 @@ go build -o clefs ./cmd/main.go
 # Compiler le .exe Windows depuis n'importe quel OS (cross-compilation)
 GOOS=windows GOARCH=amd64 go build -o clefs-windows-amd64.exe ./cmd/main.go
 
-# Lancer les tests unitaires de la logique métier
+# Compiler le bundle .app macOS (machine courante)
+./compilationmacos.sh
+
+# Lancer les tests (logique métier + couche données sur base temporaire)
 go test ./...
 
 # Détecter le code mort (outil officiel)
@@ -324,6 +364,10 @@ go run golang.org/x/tools/cmd/deadcode@latest ./...
 
 Au premier lancement, l'application crée à côté de l'exécutable :
 `clefs.db` (la base), `backups/` et `documents/`.
+
+Les releases GitHub sont produites par `.github/workflows/release.yml` au push
+d'un tag `v*` : Windows x64 et macOS Apple Silicon (binaires non signés — le
+contournement Gatekeeper est documenté dans `infos.txt`).
 
 ---
 
@@ -351,8 +395,13 @@ constantes `SELECT` et les helpers `scan*`, avec des paramètres `?`.
 - `gofmt` est la référence de formatage (non négociable en Go) : lancez
   `gofmt -w internal cmd` avant de committer.
 - `go vet ./...` doit rester silencieux.
+- `go test ./...` doit rester vert. Les tests de `internal/db` créent chacun
+  une base SQLite dans `t.TempDir()` via `setupTestDB` ; le package reposant
+  sur le singleton `DB`, ils n'utilisent **pas** `t.Parallel()`.
 - Le projet est garanti **sans code mort** (vérifié avec `deadcode`).
 - Chaque package et fonction non triviale porte un commentaire godoc en français.
+- Toute évolution de schéma respecte la garantie de compatibilité des
+  sauvegardes (§ 4.8).
 
 ---
 

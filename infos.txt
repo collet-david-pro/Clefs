@@ -18,6 +18,10 @@ Pour installer ou mettre à jour l'application :
 3. Ouvrez un terminal et rendez le fichier exécutable avec la commande : `chmod +x <nom_du_fichier>`
 4. Lancez l'application depuis le terminal : `./<nom_du_fichier>`
 
+Note macOS : le binaire n'étant pas signé par Apple, macOS peut bloquer le
+premier lancement. Dans ce cas : clic droit sur le fichier > Ouvrir, ou dans
+le terminal : `xattr -d com.apple.quarantine <nom_du_fichier>`.
+
 ---
 
 Attention (Migration V1 -> V2)
