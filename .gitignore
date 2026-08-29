@@ -9,14 +9,17 @@
 test_*
 test-*
 
-# Exécutables compilés
+# Exécutables compilés et bundle macOS local
 clefs
 clefs.exe
 clefs-*
 *.exe
+*.app/
 
-# Base de données (optionnel - à commenter si vous voulez versionner)
+# Base de données et fichiers annexes SQLite (WAL, SHM, copies de restauration)
 clefs.db
+clefs.db-*
+clefs.db.before_restore.*
 
 # Sauvegardes
 backups/
@@ -41,9 +44,6 @@ go.work
 
 # Logs
 *.log
-
-# Build scripts
-compilationmacos.sh
 
 # Notes de travail locales (non publiées)
 maj.md
