@@ -43,18 +43,23 @@ func RestoreDatabase(backupPath string, dbPath string) error {
 		return fmt.Errorf("le fichier de sauvegarde n'existe pas: %s", backupPath)
 	}
 
+	// Créer une sauvegarde de la base actuelle avant de la remplacer.
+	// IMPORTANT : cette copie doit être prise AVANT de fermer la connexion,
+	// car BackupDatabase s'appuie sur VACUUM INTO qui passe par la connexion
+	// ouverte. L'ordre inverse (fermer puis sauvegarder) rendait toute
+	// restauration impossible (« database is closed ») — corrigé en 3.3.0,
+	// verrouillé par TestBackupAndRestore.
+	if _, err := os.Stat(dbPath); err == nil && DB != nil {
+		backupCurrent := dbPath + ".before_restore." + time.Now().Format("20060102_150405")
+		if err := BackupDatabase(dbPath, backupCurrent); err != nil {
+			return fmt.Errorf("erreur lors de la sauvegarde de la base actuelle: %w", err)
+		}
+	}
+
 	// Fermer la connexion actuelle si elle existe
 	if DB != nil {
 		if err := DB.Close(); err != nil {
 			return fmt.Errorf("erreur lors de la fermeture de la base de données: %w", err)
-		}
-	}
-
-	// Créer une sauvegarde de la base actuelle avant de la remplacer
-	if _, err := os.Stat(dbPath); err == nil {
-		backupCurrent := dbPath + ".before_restore." + time.Now().Format("20060102_150405")
-		if err := BackupDatabase(dbPath, backupCurrent); err != nil {
-			return fmt.Errorf("erreur lors de la sauvegarde de la base actuelle: %w", err)
 		}
 	}
 
