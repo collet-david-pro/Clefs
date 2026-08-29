@@ -65,6 +65,16 @@ func stockAdjuster(current int, onSave func(newTotal int)) fyne.CanvasObject {
 
 	entry := widget.NewEntry()
 	entry.SetText(strconv.Itoa(current))
+	// Retour visuel immédiat (champ rouge) sur saisie non numérique ou
+	// négative ; la valeur invalide n'est de toute façon jamais enregistrée
+	// (voir OnChanged ci-dessous, qui l'ignore).
+	entry.Validator = func(s string) error {
+		n, err := strconv.Atoi(s)
+		if err != nil || n < 0 {
+			return fmt.Errorf("nombre positif requis")
+		}
+		return nil
+	}
 
 	slider := widget.NewSlider(0, float64(maxVal))
 	slider.Step = 1

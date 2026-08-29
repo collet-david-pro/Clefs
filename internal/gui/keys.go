@@ -263,6 +263,14 @@ func showAddKeyDialog(app *App) {
 			app.showError("Erreur", "La quantité en réserve doit être un nombre positif ou zéro.")
 			return
 		}
+		if reserve > total {
+			// Sinon le stock utilisable (total - réserve) serait négatif dès la
+			// saisie, sans le moindre prêt : c'est une erreur de frappe, pas un
+			// sur-prêt volontaire.
+			app.showError("Erreur", fmt.Sprintf(
+				"La réserve (%d) ne peut pas dépasser la quantité totale (%d).", reserve, total))
+			return
+		}
 		var selectedRoomIDs []int
 		for roomID, checkbox := range roomCheckboxes {
 			if checkbox.Checked {
@@ -398,6 +406,14 @@ func showEditKeyDialog(app *App, keyID int) {
 		reserve, err := strconv.Atoi(reserveEntry.Text)
 		if err != nil || reserve < 0 {
 			app.showError("Erreur", "La quantité en réserve doit être un nombre positif ou zéro.")
+			return
+		}
+		if reserve > total {
+			// Sinon le stock utilisable (total - réserve) serait négatif dès la
+			// saisie, sans le moindre prêt : c'est une erreur de frappe, pas un
+			// sur-prêt volontaire.
+			app.showError("Erreur", fmt.Sprintf(
+				"La réserve (%d) ne peut pas dépasser la quantité totale (%d).", reserve, total))
 			return
 		}
 		var selectedRoomIDs []int
