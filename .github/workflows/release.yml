@@ -22,6 +22,13 @@ jobs:
             output_name: clefs-windows-amd64.exe
             archive_name: clefs-windows-amd64.zip
             cgo_enabled: "1"
+          # macOS Apple Silicon (arm64) — runner macos-14 natif arm64
+          - os: macos-14
+            goos: darwin
+            goarch: arm64
+            output_name: clefs-macos-arm64
+            archive_name: clefs-macos-arm64.zip
+            cgo_enabled: "1"
 
     steps:
       - name: Checkout code
@@ -52,6 +59,25 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Path ${{ matrix.output_name }}, infos.txt -DestinationPath ${{ matrix.archive_name }}
+
+      # --- macOS Build ---
+      # CGO requis par Fyne (frameworks Cocoa/Metal) ; toolchain Xcode déjà
+      # présente sur les runners macOS. Binaire non signé/notarisé : le
+      # contournement Gatekeeper est documenté dans infos.txt et les notes.
+      - name: Build (macOS)
+        if: matrix.goos == 'darwin'
+        env:
+          CGO_ENABLED: ${{ matrix.cgo_enabled }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -ldflags="-s -w" -o ${{ matrix.output_name }} ./cmd/main.go
+
+      - name: Package (macOS)
+        if: matrix.goos == 'darwin'
+        run: |
+          chmod +x ${{ matrix.output_name }}
+          zip ${{ matrix.archive_name }} ${{ matrix.output_name }} infos.txt
 
       # --- Upload Artifact ---
       - name: Upload artifact
@@ -96,6 +122,9 @@ jobs:
           
           ### Windows (64-bit)
           - **clefs-windows-amd64.zip**: Archive contenant l'exécutable `clefs-windows-amd64.exe`.
+
+          ### macOS (Apple Silicon)
+          - **clefs-macos-arm64.zip**: Archive contenant l'exécutable `clefs-macos-arm64`.
           
           ## 🚀 Installation & Utilisation
 
@@ -104,6 +133,13 @@ jobs:
           ### Windows
           1. Téléchargez et décompressez `clefs-windows-amd64.zip`.
           2. Double-cliquez sur `clefs-windows-amd64.exe` pour lancer.
+
+          ### macOS (Apple Silicon)
+          1. Téléchargez et décompressez `clefs-macos-arm64.zip`.
+          2. Ouvrez un terminal dans le dossier et lancez : `chmod +x clefs-macos-arm64` puis `./clefs-macos-arm64`.
+          3. Le binaire n'étant pas signé par Apple, macOS peut le bloquer au premier
+             lancement : faites **clic droit → Ouvrir** sur le fichier (ou retirez la
+             quarantaine avec `xattr -d com.apple.quarantine clefs-macos-arm64`).
           
           ## 📂 Structure des Fichiers
           
