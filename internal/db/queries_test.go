@@ -125,3 +125,40 @@ func TestUpdateKeyQuantityTotal(t *testing.T) {
 		t.Errorf("disponible = %d, attendu -1", avail)
 	}
 }
+
+// TestCheckInventoryAnomalies vérifie la détection des clés en sur-prêt et
+// l'absence de faux positifs sur un inventaire cohérent.
+func TestCheckInventoryAnomalies(t *testing.T) {
+	setupTestDB(t)
+	sain := mustCreateKey(t, "K-01", 3, 1)
+	surpret := mustCreateKey(t, "K-02", 1, 0)
+	alice := mustCreateBorrower(t, "Alice")
+	bob := mustCreateBorrower(t, "Bob")
+
+	if err := CreateMultipleLoans([]int{sain.ID, surpret.ID}, alice.ID); err != nil {
+		t.Fatalf("prêts initiaux: %v", err)
+	}
+	anomalies, err := CheckInventoryAnomalies()
+	if err != nil {
+		t.Fatalf("CheckInventoryAnomalies: %v", err)
+	}
+	if len(anomalies) != 0 {
+		t.Fatalf("faux positif : %+v", anomalies)
+	}
+
+	// Deuxième sortie du seul exemplaire de K-02 → sur-prêt
+	if err := CreateMultipleLoans([]int{surpret.ID}, bob.ID); err != nil {
+		t.Fatalf("sur-prêt: %v", err)
+	}
+	anomalies, err = CheckInventoryAnomalies()
+	if err != nil {
+		t.Fatalf("CheckInventoryAnomalies: %v", err)
+	}
+	if len(anomalies) != 1 {
+		t.Fatalf("anomalies = %d, attendu 1 (%+v)", len(anomalies), anomalies)
+	}
+	a := anomalies[0]
+	if a.KeyNumber != "K-02" || a.Loaned != 2 || a.Available != -1 || a.Total != 1 {
+		t.Errorf("anomalie inattendue : %+v", a)
+	}
+}

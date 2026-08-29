@@ -137,7 +137,11 @@ func keyCard(k db.KeyWithAvailability, onLoan func(), onReturn func(), onSaveSto
 	var dotColor, badgeFill, badgeFg color.Color
 	var availText string
 	switch {
-	case k.AvailableCount <= 0:
+	case k.AvailableCount < 0:
+		// Sur-prêt : plus d'exemplaires sortis que de stock utilisable.
+		dotColor, badgeFill, badgeFg = colorDanger, colorDangerSoft, colorDanger
+		availText = fmt.Sprintf("⚠ Erreur d'inventaire (%d)", k.AvailableCount)
+	case k.AvailableCount == 0:
 		dotColor, badgeFill, badgeFg = colorDanger, colorDangerSoft, colorDanger
 		availText = "Indisponible"
 	case k.AvailableCount == 1:
@@ -248,4 +252,23 @@ func loanKeyCard(k db.Key, coveredAccesses []string, suggested bool, onRemove fu
 	)
 	body := container.NewBorder(nil, nil, nil, container.NewCenter(removeBtn), info)
 	return card(body)
+}
+
+// inventoryAlertBanner construit le bandeau rouge « erreur d'inventaire »
+// listant les clés dont plus d'exemplaires sont sortis que le stock utilisable.
+// Affiché sur le tableau de bord et en tête de la vue clés ; purement
+// informatif, il n'empêche aucune action.
+func inventoryAlertBanner(anomalies []db.InventoryAnomaly) fyne.CanvasObject {
+	title := canvas.NewText("⚠ Erreur d'inventaire, vérifier le stock", colorDanger)
+	title.TextStyle = fyne.TextStyle{Bold: true}
+
+	box := container.NewVBox(title)
+	for _, a := range anomalies {
+		line := canvas.NewText(fmt.Sprintf(
+			"Clé n° %s : %d sortie(s) pour %d utilisable(s) (total %d, réserve %d)",
+			a.KeyNumber, a.Loaned, a.Total-a.Reserve, a.Total, a.Reserve), colorDanger)
+		line.TextSize = 12
+		box.Add(line)
+	}
+	return coloredCard(box, colorDangerSoft, colorDanger)
 }

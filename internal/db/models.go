@@ -116,3 +116,16 @@ type RedundancyReport struct {
 	Keys              []Key
 	RedundantAccesses []Room
 }
+
+// InventoryAnomaly décrit une clé dont le nombre d'exemplaires sortis dépasse
+// le stock utilisable déclaré (total - réserve), donnant un disponible négatif.
+// Le sur-prêt étant volontairement autorisé, cette structure sert uniquement
+// au signalement à l'écran (« erreur d'inventaire, vérifier le stock »).
+type InventoryAnomaly struct {
+	KeyID     int
+	KeyNumber string
+	Total     int
+	Reserve   int
+	Loaned    int
+	Available int // toujours strictement négatif
+}

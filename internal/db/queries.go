@@ -781,6 +781,36 @@ func CreateMultipleLoans(keyIDs []int, borrowerID int) error {
 	return tx.Commit()
 }
 
+// CheckInventoryAnomalies retourne les clés dont le nombre d'exemplaires
+// prêtés dépasse le stock utilisable (total - réserve). Le résultat est vide
+// quand l'inventaire est cohérent. Ce contrôle est purement informatif : il
+// n'empêche jamais un prêt (le sur-prêt est un comportement métier assumé).
+func CheckInventoryAnomalies() ([]InventoryAnomaly, error) {
+	rows, err := DB.Query(`
+		SELECT k.id, k.number, k.quantity_total, k.quantity_reserve, COUNT(l.id) AS loaned
+		FROM keys k
+		LEFT JOIN loans l ON l.key_id = k.id AND l.return_date IS NULL
+		GROUP BY k.id
+		HAVING (k.quantity_total - k.quantity_reserve - COUNT(l.id)) < 0
+		ORDER BY k.number
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var anomalies []InventoryAnomaly
+	for rows.Next() {
+		var a InventoryAnomaly
+		if err := rows.Scan(&a.KeyID, &a.KeyNumber, &a.Total, &a.Reserve, &a.Loaned); err != nil {
+			return nil, err
+		}
+		a.Available = a.Total - a.Reserve - a.Loaned
+		anomalies = append(anomalies, a)
+	}
+	return anomalies, rows.Err()
+}
+
 // GetLoanDuration calcule la durée d'un emprunt en jours
 func GetLoanDuration(loanDate time.Time) float64 {
 	return time.Since(loanDate).Hours() / 24

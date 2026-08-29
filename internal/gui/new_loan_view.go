@@ -357,9 +357,29 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 		// Afficher la confirmation PUIS naviguer au dashboard quand l'utilisateur clique OK.
 		// Ne pas appeler showDashboard() dans le même call stack que le clic bouton
 		// car Fyne détruirait la vue courante pendant le traitement de l'événement.
+		confirmBox := container.NewVBox(
+			widget.NewLabel(fmt.Sprintf("%d clé(s) remise(s) à %s.\nLe bon de remise est généré dans documents/.", len(finalKeys), borrowerName)),
+		)
+		// Le prêt vient peut-être de faire passer une clé en sur-prêt : le
+		// signaler dans la confirmation, sans remettre le prêt en cause.
+		if anomalies, err := db.CheckInventoryAnomalies(); err == nil {
+			loaned := make(map[int]bool, len(keyIDs))
+			for _, id := range keyIDs {
+				loaned[id] = true
+			}
+			for _, an := range anomalies {
+				if loaned[an.KeyID] {
+					warn := widget.NewLabel(fmt.Sprintf(
+						"⚠ Erreur d'inventaire, vérifier le stock : clé n° %s (%d sortie(s) pour %d utilisable(s)).",
+						an.KeyNumber, an.Loaned, an.Total-an.Reserve))
+					warn.Wrapping = fyne.TextWrapWord
+					confirmBox.Add(warn)
+				}
+			}
+		}
 		var p *widget.PopUp
 		p = widget.NewModalPopUp(container.NewVBox(
-			widget.NewLabel(fmt.Sprintf("%d clé(s) remise(s) à %s.\nLe bon de remise est généré dans documents/.", len(finalKeys), borrowerName)),
+			confirmBox,
 			widget.NewButton("OK", func() {
 				a.window.Canvas().Overlays().Remove(p)
 				a.showDashboard()

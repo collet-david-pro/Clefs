@@ -60,8 +60,15 @@ func createKeysView(app *App) fyne.CanvasObject {
 		keysList = createKeysListView(keys, app)
 	}
 
+	// Bandeau d'alerte inventaire, dérivé de la liste déjà chargée (pas de
+	// requête supplémentaire) : signale les clés en sur-prêt sans rien bloquer.
+	top := container.NewVBox(header)
+	if anomalies := anomaliesFromAvailability(keys); len(anomalies) > 0 {
+		top.Add(inventoryAlertBanner(anomalies))
+	}
+
 	content := container.NewBorder(
-		header,
+		top,
 		nil,
 		nil,
 		nil,
@@ -69,6 +76,25 @@ func createKeysView(app *App) fyne.CanvasObject {
 	)
 
 	return content
+}
+
+// anomaliesFromAvailability extrait les anomalies d'inventaire (disponible
+// négatif) d'une liste de clés déjà chargée avec sa disponibilité.
+func anomaliesFromAvailability(keys []db.KeyWithAvailability) []db.InventoryAnomaly {
+	var anomalies []db.InventoryAnomaly
+	for _, k := range keys {
+		if k.AvailableCount < 0 {
+			anomalies = append(anomalies, db.InventoryAnomaly{
+				KeyID:     k.ID,
+				KeyNumber: k.Number,
+				Total:     k.QuantityTotal,
+				Reserve:   k.QuantityReserve,
+				Loaned:    k.LoanedCount,
+				Available: k.AvailableCount,
+			})
+		}
+	}
+	return anomalies
 }
 
 // keysToggleLabel retourne le libellé du bouton de bascule selon le mode courant
@@ -135,6 +161,9 @@ func createKeysCompactView(keys []db.KeyWithAvailability, app *App) fyne.CanvasO
 	for _, k := range keys {
 		k := k
 		summary := fmt.Sprintf("%s  —  stock %d/%d (dispo/total)", k.Number, k.AvailableCount, k.QuantityTotal)
+		if k.AvailableCount < 0 {
+			summary = "⚠ " + summary
+		}
 		acc.Append(widget.NewAccordionItem(summary, keyDetailBlock(k, app)))
 	}
 	return acc

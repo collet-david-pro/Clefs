@@ -88,6 +88,9 @@ func getStatistics() map[string]interface{} {
 	redundancies, _ := db.GetBorrowersWithRedundantAccesses()
 	stats["redundancies"] = len(redundancies)
 
+	anomalies, _ := db.CheckInventoryAnomalies()
+	stats["inventoryAnomalies"] = anomalies
+
 	return stats
 }
 
@@ -104,6 +107,10 @@ func createStatisticsCards(stats map[string]interface{}) fyne.CanvasObject {
 	box := container.NewVBox(tiles)
 
 	// Alertes — affichées en bandeaux colorés seulement si > 0.
+	if anomalies, _ := stats["inventoryAnomalies"].([]db.InventoryAnomaly); len(anomalies) > 0 {
+		box.Add(widget.NewLabel(""))
+		box.Add(inventoryAlertBanner(anomalies))
+	}
 	if n, _ := stats["overdueLoans"].(int); n > 0 {
 		icon := widget.NewIcon(theme.WarningIcon())
 		msg := canvas.NewText(
