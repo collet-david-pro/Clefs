@@ -53,10 +53,10 @@ func TestRestoreBackupWithNegativeStock(t *testing.T) {
 	k := mustCreateKey(t, "K-01", 1, 0)
 	alice := mustCreateBorrower(t, "Alice")
 	bob := mustCreateBorrower(t, "Bob")
-	if err := CreateMultipleLoans([]int{k.ID}, alice.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, alice.ID); err != nil {
 		t.Fatalf("prêt 1: %v", err)
 	}
-	if err := CreateMultipleLoans([]int{k.ID}, bob.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, bob.ID); err != nil {
 		t.Fatalf("prêt 2: %v", err)
 	}
 

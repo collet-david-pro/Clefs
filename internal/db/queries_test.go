@@ -9,7 +9,7 @@ func TestLoanLifecycle(t *testing.T) {
 	k := mustCreateKey(t, "K-01", 3, 1)
 	b := mustCreateBorrower(t, "Alice")
 
-	if err := CreateMultipleLoans([]int{k.ID}, b.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, b.ID); err != nil {
 		t.Fatalf("CreateMultipleLoans: %v", err)
 	}
 
@@ -61,8 +61,12 @@ func TestCreateMultipleLoansSeveralKeys(t *testing.T) {
 	k2 := mustCreateKey(t, "K-02", 2, 0)
 	b := mustCreateBorrower(t, "Bob")
 
-	if err := CreateMultipleLoans([]int{k1.ID, k2.ID}, b.ID); err != nil {
+	loanIDs, err := CreateMultipleLoans([]int{k1.ID, k2.ID}, b.ID)
+	if err != nil {
 		t.Fatalf("CreateMultipleLoans: %v", err)
+	}
+	if len(loanIDs) != 2 {
+		t.Fatalf("IDs retournés = %d, attendu 2", len(loanIDs))
 	}
 	loans, err := GetActiveLoansByBorrowerID(b.ID)
 	if err != nil {
@@ -70,6 +74,16 @@ func TestCreateMultipleLoansSeveralKeys(t *testing.T) {
 	}
 	if len(loans) != 2 {
 		t.Errorf("prêts créés = %d, attendu 2", len(loans))
+	}
+	// Les IDs retournés doivent correspondre exactement aux prêts en base
+	got := map[int]bool{}
+	for _, l := range loans {
+		got[l.Loan.ID] = true
+	}
+	for _, id := range loanIDs {
+		if !got[id] {
+			t.Errorf("ID retourné %d absent des prêts actifs", id)
+		}
 	}
 }
 
@@ -82,11 +96,11 @@ func TestOverloanAllowed(t *testing.T) {
 	alice := mustCreateBorrower(t, "Alice")
 	bob := mustCreateBorrower(t, "Bob")
 
-	if err := CreateMultipleLoans([]int{k.ID}, alice.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, alice.ID); err != nil {
 		t.Fatalf("premier prêt: %v", err)
 	}
 	// Deuxième prêt du même exemplaire : doit passer sans erreur.
-	if err := CreateMultipleLoans([]int{k.ID}, bob.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, bob.ID); err != nil {
 		t.Fatalf("sur-prêt refusé alors qu'il doit être autorisé: %v", err)
 	}
 
@@ -105,7 +119,7 @@ func TestUpdateKeyQuantityTotal(t *testing.T) {
 	setupTestDB(t)
 	k := mustCreateKey(t, "K-01", 5, 0)
 	b := mustCreateBorrower(t, "Alice")
-	if err := CreateMultipleLoans([]int{k.ID}, b.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, b.ID); err != nil {
 		t.Fatalf("CreateMultipleLoans: %v", err)
 	}
 
@@ -135,7 +149,7 @@ func TestCheckInventoryAnomalies(t *testing.T) {
 	alice := mustCreateBorrower(t, "Alice")
 	bob := mustCreateBorrower(t, "Bob")
 
-	if err := CreateMultipleLoans([]int{sain.ID, surpret.ID}, alice.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{sain.ID, surpret.ID}, alice.ID); err != nil {
 		t.Fatalf("prêts initiaux: %v", err)
 	}
 	anomalies, err := CheckInventoryAnomalies()
@@ -147,7 +161,7 @@ func TestCheckInventoryAnomalies(t *testing.T) {
 	}
 
 	// Deuxième sortie du seul exemplaire de K-02 → sur-prêt
-	if err := CreateMultipleLoans([]int{surpret.ID}, bob.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{surpret.ID}, bob.ID); err != nil {
 		t.Fatalf("sur-prêt: %v", err)
 	}
 	anomalies, err = CheckInventoryAnomalies()

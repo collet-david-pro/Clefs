@@ -67,6 +67,18 @@ func createActiveLoansView(app *App) fyne.CanvasObject {
 	return content
 }
 
+// reeditBorrowerReceipt régénère dans documents/ le bon de remise complet et à
+// jour d'un détenteur (toutes ses clés actuelles), puis confirme ou signale
+// l'erreur. Appelé depuis la vue des emprunts en cours et la liste des
+// détenteurs.
+func reeditBorrowerReceipt(app *App, borrowerID int) {
+	if err := generateHandoverReceipt(borrowerID, nil, nil, pdf.BorrowerReceiptOptions{Agent: "Administrateur"}); err != nil {
+		app.showError("Erreur", fmt.Sprintf("Réédition du bon impossible : %v", err))
+		return
+	}
+	app.showSuccess("✅ Bon de remise réédité dans documents/.")
+}
+
 // generateBorrowerReceiptPDF génère et enregistre un reçu groupé pour un emprunteur
 func generateBorrowerReceiptPDF(app *App, loans []db.LoanWithDetails) {
 	if len(loans) == 0 {
@@ -140,7 +152,14 @@ func createBorrowerAccordion(app *App, borrowerName string, loans []db.LoanWithD
 		generateBorrowerReceiptPDF(app, loans)
 	})
 	generateReceiptBtn.Importance = widget.HighImportance
-	detailsContent.Add(generateReceiptBtn)
+
+	// Réédition du bon de remise complet : régénère dans documents/ un bon à
+	// jour couvrant TOUTES les clés actuellement détenues (accès en annexe) —
+	// utile après avoir ajouté une clé à un détenteur déjà emprunteur.
+	reeditBtn := widget.NewButton("🔄 Rééditer le bon", func() {
+		reeditBorrowerReceipt(app, loans[0].BorrowerID)
+	})
+	detailsContent.Add(container.NewHBox(generateReceiptBtn, reeditBtn))
 
 	// Créer l'item d'accordéon
 	accordionItem := widget.NewAccordionItem(

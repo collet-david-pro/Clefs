@@ -85,6 +85,11 @@ func createBorrowersListView(borrowers []db.Borrower, app *App) fyne.CanvasObjec
 				generateBorrowerReceipt(app, b.ID)
 			})
 			actions.Add(receiptBtn)
+			// Bon de remise complet régénéré en un clic dans documents/
+			reeditBtn := widget.NewButton("🔄 Rééditer le bon", func() {
+				reeditBorrowerReceipt(app, b.ID)
+			})
+			actions.Add(reeditBtn)
 		}
 
 		editBtn := widget.NewButton("✏️ Modifier", func() {

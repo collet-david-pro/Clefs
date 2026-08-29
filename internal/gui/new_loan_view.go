@@ -301,51 +301,25 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 		for i, k := range finalKeys {
 			keyIDs[i] = k.ID
 		}
-		if err := db.CreateMultipleLoans(keyIDs, selectedBorrowerID); err != nil {
+		loanIDs, err := db.CreateMultipleLoans(keyIDs, selectedBorrowerID)
+		if err != nil {
 			a.showError("Erreur", fmt.Sprintf("Erreur lors de la création du prêt : %v", err))
 			return
 		}
 
-		// Générer le bon PDF en arrière-plan
-		nKeys := len(finalKeys) // capture avant la goroutine
-		go func() {
-			borrower, _ := db.GetBorrowerByID(selectedBorrowerID)
-			loans, _ := db.GetActiveLoansByBorrowerID(selectedBorrowerID)
-			// Les prêts sont triés par loan_date croissant — les N derniers sont ceux qu'on vient de créer
-			var recentLoans []db.LoanWithDetails
-			if len(loans) >= nKeys {
-				recentLoans = loans[len(loans)-nKeys:]
-			} else {
-				recentLoans = loans
-			}
-			if borrower != nil && len(recentLoans) > 0 {
-				// Collecter les accès couverts pour le bon
-				var allAccesses []db.Room
-				seen := map[int]struct{}{}
-				for _, k := range finalKeys {
-					rooms, _ := db.GetRoomsForKey(k.ID)
-					for _, r := range rooms {
-						if _, ok := seen[r.ID]; !ok {
-							seen[r.ID] = struct{}{}
-							// Passer le nom du bâtiment via le champ Notes (utilisé par le PDF)
-							r.Notes = bldgName[r.BuildingID]
-							allAccesses = append(allAccesses, r)
-						}
-					}
-				}
-				opts := pdf.BorrowerReceiptOptions{
-					Agent:         "Administrateur",
-					PlannedReturn: plannedReturn,
-					LoanType:      loanTypeSelect.Selected,
-					Accesses:      allAccesses,
-				}
-				pdfData, err := pdf.GenerateBorrowerReceipt(borrower, recentLoans, opts)
-				if err == nil {
-					filename := pdf.GenerateFilename("bon_remise_"+borrower.Name, 0)
-					pdf.SavePDF(filename, pdfData)
-				}
-			}
-		}()
+		// Générer le bon de remise immédiatement (quelques millisecondes) :
+		// contrairement à l'ancienne goroutine silencieuse, une erreur de
+		// génération est remontée dans la confirmation, et les prêts sont
+		// ciblés par leurs IDs exacts (plus d'heuristique « N derniers »).
+		pdfMsg := "Le bon de remise est généré dans documents/."
+		opts := pdf.BorrowerReceiptOptions{
+			Agent:         "Administrateur",
+			PlannedReturn: plannedReturn,
+			LoanType:      loanTypeSelect.Selected,
+		}
+		if err := generateHandoverReceipt(selectedBorrowerID, loanIDs, bldgName, opts); err != nil {
+			pdfMsg = fmt.Sprintf("⚠ Le bon de remise n'a pas pu être généré : %v", err)
+		}
 
 		borrowerName := ""
 		for _, b := range borrowers {
@@ -358,7 +332,7 @@ func createNewLoanView(a *App) fyne.CanvasObject {
 		// Ne pas appeler showDashboard() dans le même call stack que le clic bouton
 		// car Fyne détruirait la vue courante pendant le traitement de l'événement.
 		confirmBox := container.NewVBox(
-			widget.NewLabel(fmt.Sprintf("%d clé(s) remise(s) à %s.\nLe bon de remise est généré dans documents/.", len(finalKeys), borrowerName)),
+			widget.NewLabel(fmt.Sprintf("%d clé(s) remise(s) à %s.\n%s", len(finalKeys), borrowerName, pdfMsg)),
 		)
 		// Le prêt vient peut-être de faire passer une clé en sur-prêt : le
 		// signaler dans la confirmation, sans remettre le prêt en cause.
@@ -444,4 +418,75 @@ func accessIDsToNames(ids []int) []string {
 		}
 	}
 	return names
+}
+
+// generateHandoverReceipt génère et enregistre le bon de remise PDF d'un
+// détenteur pour un sous-ensemble précis de ses prêts actifs (loanIDs).
+// Si loanIDs est vide, tous les prêts actifs sont inclus — c'est le mode
+// « réédition » d'un bon complet à jour. Les accès couverts par les clés
+// concernées sont ajoutés en annexe, avec le nom du bâtiment (passé via le
+// champ Notes, convention attendue par le générateur PDF). bldgName peut être
+// nil : la table des bâtiments est alors rechargée.
+func generateHandoverReceipt(borrowerID int, loanIDs []int, bldgName map[int]string, opts pdf.BorrowerReceiptOptions) error {
+	borrower, err := db.GetBorrowerByID(borrowerID)
+	if err != nil {
+		return fmt.Errorf("détenteur introuvable : %w", err)
+	}
+	loans, err := db.GetActiveLoansByBorrowerID(borrowerID)
+	if err != nil {
+		return fmt.Errorf("lecture des prêts : %w", err)
+	}
+	if len(loanIDs) > 0 {
+		wanted := make(map[int]bool, len(loanIDs))
+		for _, id := range loanIDs {
+			wanted[id] = true
+		}
+		filtered := loans[:0]
+		for _, l := range loans {
+			if wanted[l.Loan.ID] {
+				filtered = append(filtered, l)
+			}
+		}
+		loans = filtered
+	}
+	if len(loans) == 0 {
+		return fmt.Errorf("aucun prêt actif à documenter")
+	}
+
+	if bldgName == nil {
+		bldgName = map[int]string{}
+		if buildings, err := db.GetAllBuildings(); err == nil {
+			for _, b := range buildings {
+				bldgName[b.ID] = b.Name
+			}
+		}
+	}
+
+	// Accès couverts par les clés du bon, dédoublonnés
+	var allAccesses []db.Room
+	seen := map[int]struct{}{}
+	for _, l := range loans {
+		rooms, err := db.GetRoomsForKey(l.KeyID)
+		if err != nil {
+			return fmt.Errorf("accès de la clé %s : %w", l.KeyNumber, err)
+		}
+		for _, r := range rooms {
+			if _, ok := seen[r.ID]; !ok {
+				seen[r.ID] = struct{}{}
+				r.Notes = bldgName[r.BuildingID]
+				allAccesses = append(allAccesses, r)
+			}
+		}
+	}
+	opts.Accesses = allAccesses
+
+	pdfData, err := pdf.GenerateBorrowerReceipt(borrower, loans, opts)
+	if err != nil {
+		return fmt.Errorf("génération : %w", err)
+	}
+	filename := pdf.GenerateFilename("bon_remise_"+borrower.Name, 0)
+	if _, err := pdf.SavePDF(filename, pdfData); err != nil {
+		return fmt.Errorf("enregistrement : %w", err)
+	}
+	return nil
 }

@@ -762,23 +762,32 @@ func GetKeysForRoom(roomID int) ([]Key, error) {
 // CreateMultipleLoans crée plusieurs emprunts pour un emprunteur.
 // La disponibilité est vérifiée en amont par l'interface — pas de requête imbriquée
 // dans la transaction pour éviter le deadlock avec SetMaxOpenConns(1).
-func CreateMultipleLoans(keyIDs []int, borrowerID int) error {
+func CreateMultipleLoans(keyIDs []int, borrowerID int) ([]int, error) {
 	tx, err := DB.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 
 	now := time.Now()
+	loanIDs := make([]int, 0, len(keyIDs))
 	for _, keyID := range keyIDs {
-		_, err = tx.Exec(`INSERT INTO loans (key_id, borrower_id, loan_date) VALUES (?, ?, ?)`,
+		res, err := tx.Exec(`INSERT INTO loans (key_id, borrower_id, loan_date) VALUES (?, ?, ?)`,
 			keyID, borrowerID, now)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			return nil, err
+		}
+		loanIDs = append(loanIDs, int(id))
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return loanIDs, nil
 }
 
 // CheckInventoryAnomalies retourne les clés dont le nombre d'exemplaires
