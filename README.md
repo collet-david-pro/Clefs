@@ -201,13 +201,6 @@ internal/
 go run ./cmd/main.go
 ```
 
-### Créer une release (Windows + macOS)
-
-```bash
-./create-release.sh 3.3.0
-```
-
-Le script committe les modifications, crée le tag et pousse vers GitHub. Le workflow Actions compile les exécutables Windows x64 et macOS Apple Silicon, puis publie la release automatiquement.
 
 ---
 
