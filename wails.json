@@ -1,0 +1,21 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Gestionnaire de Clés",
+  "outputfilename": "clefs",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "./frontend/src/lib",
+  "author": {
+    "name": "COLLET David",
+    "email": "david.collet@ac-amiens.fr"
+  },
+  "info": {
+    "companyName": "Collège Victor Hugo — Chauny",
+    "productName": "Gestionnaire de Clés",
+    "productVersion": "4.0.0",
+    "copyright": "© 2026 COLLET David — MIT License",
+    "comments": "Gestion du parc de clés"
+  }
+}

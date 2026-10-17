@@ -1,28 +1,41 @@
-Consigne importante pour toutes les plateformes
-Pour assurer le bon fonctionnement de l'application, placez l'exécutable dans un dossier qui lui est propre avant de le lancer. L'application créera des fichiers (comme la base de données et les documents) dans ce même dossier.
+Gestionnaire de Clés — Version 4 (Windows)
+
+Installation
+1. Créez un dossier dédié à l'application (ex. C:\Clefs-V4\ ou un dossier sur le partage réseau).
+2. Placez-y clefs-windows-amd64.exe, puis double-cliquez dessus. Rien d'autre à installer.
+3. L'application crée à côté d'elle : clefs.db (la base de données), backups\ (sauvegardes) et documents\ (PDF et exports Excel).
+
+Windows peut afficher une alerte car l'exécutable n'est pas signé :
+cliquez sur « Informations complémentaires », puis « Exécuter quand même ».
 
 ---
 
-Windows
-Pour mettre à jour l'application :
-1. Faites une sauvegarde de votre base de données via l'application.
-2. Remplacez l'ancien fichier .exe par le nouveau.
-3. Testez l'application pour vérifier que tout fonctionne correctement.
+Passer d'une version précédente (1.x, 2.x ou 3.x) à la version 4
+1. Fermez l'ancienne application sur tous les postes.
+2. Installez la version 4 dans un NOUVEAU dossier (ne remplacez pas l'ancien).
+3. Au premier lancement, l'assistant « Importer une base existante » s'ouvre :
+   choisissez le fichier clefs.db de l'ancien dossier (ou une sauvegarde .db).
+   La version est détectée automatiquement et un aperçu s'affiche avant l'import.
+4. Après l'import, faites une première sauvegarde (page Sauvegardes).
+
+L'ancien dossier n'est jamais modifié : conservez-le jusqu'à ce que tout soit vérifié.
+L'assistant reste accessible ensuite depuis Outils > Importer une base.
 
 ---
 
-macOS & Linux
-Pour installer ou mettre à jour l'application :
-1. Si vous mettez à jour, faites une sauvegarde de votre base de données depuis l'ancienne version.
-2. Remplacez l'ancien exécutable par le nouveau.
-3. Ouvrez un terminal et rendez le fichier exécutable avec la commande : `chmod +x <nom_du_fichier>`
-4. Lancez l'application depuis le terminal : `./<nom_du_fichier>`
-
-Note macOS : le binaire n'étant pas signé par Apple, macOS peut bloquer le
-premier lancement. Dans ce cas : clic droit sur le fichier > Ouvrir, ou dans
-le terminal : `xattr -d com.apple.quarantine <nom_du_fichier>`.
+Mettre à jour une version 4 vers une version 4 plus récente
+1. Faites une sauvegarde depuis l'application (page Sauvegardes).
+2. Fermez l'application sur tous les postes.
+3. Remplacez l'ancien fichier .exe par le nouveau, dans le même dossier.
 
 ---
 
-Attention (Migration V1 -> V2)
-Pour les utilisateurs passant d'une version 1.x à une version 2.x, il est impératif d'utiliser la fonction d'importation de la base de données disponible dans la nouvelle version de l'application.
+Premiers réglages et aide
+- Paramètres > Établissement et documents : nom, adresse et logo de l'établissement, textes des bons de remise.
+- Le menu Aide présente l'application pas à pas, avec un accès direct à chaque écran.
+
+---
+
+Utilisation en réseau
+Placez le dossier de l'application sur un partage réseau : plusieurs postes peuvent l'utiliser en même temps.
+Le moteur d'affichage Microsoft Edge WebView2 est nécessaire : il est fourni d'office avec Windows 10 et Windows 11.

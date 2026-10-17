@@ -2,7 +2,7 @@
 
 # Script pour créer une nouvelle release du Gestionnaire de Clés
 # Usage: ./create-release.sh [version]
-# Exemple: ./create-release.sh 2.0.0
+# Exemple: ./create-release.sh 4.0.0
 
 set -e  # Arrêter le script en cas d'erreur
 
@@ -22,7 +22,7 @@ echo ""
 if [ -z "$1" ]; then
     echo -e "${RED}❌ Erreur: Aucune version spécifiée${NC}"
     echo -e "${YELLOW}Usage: ./create-release.sh [version]${NC}"
-    echo -e "${YELLOW}Exemple: ./create-release.sh 2.0.0${NC}"
+    echo -e "${YELLOW}Exemple: ./create-release.sh 4.0.0${NC}"
     exit 1
 fi
 
@@ -31,6 +31,21 @@ TAG="v${VERSION}"
 
 echo -e "${BLUE}📦 Version à créer: ${GREEN}${TAG}${NC}"
 echo ""
+
+# Vérifier que la version affichée par l'application correspond au tag
+CODE_VERSION=$(sed -n 's/^const Version = "\(.*\)".*/\1/p' internal/app/app.go | tr -d '\r')
+if [ "$CODE_VERSION" != "$VERSION" ]; then
+    echo -e "${RED}❌ Erreur: internal/app/app.go indique la version ${CODE_VERSION}, pas ${VERSION}${NC}"
+    echo -e "${YELLOW}💡 Mettez à jour la constante Version (et wails.json), puis relancez.${NC}"
+    exit 1
+fi
+# La version figure aussi dans les métadonnées de l'exécutable et du frontend.
+for f in wails.json frontend/package.json; do
+    if ! grep -q "\"$VERSION\"" "$f"; then
+        echo -e "${RED}❌ Erreur: ${f} n'indique pas la version ${VERSION}${NC}"
+        exit 1
+    fi
+done
 
 # Vérifier si le tag existe déjà
 if git rev-parse "$TAG" >/dev/null 2>&1; then

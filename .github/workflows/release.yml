@@ -1,5 +1,8 @@
 name: Release
 
+# Publie une release GitHub au push d'un tag v* (ex. v4.0.0).
+# V4 : Windows x64 uniquement, application Wails (Go + interface Svelte).
+
 on:
   push:
     tags:
@@ -10,26 +13,8 @@ permissions:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          # Windows x64
-          - os: windows-latest
-            goos: windows
-            goarch: amd64
-            output_name: clefs-windows-amd64.exe
-            archive_name: clefs-windows-amd64.zip
-            cgo_enabled: "1"
-          # macOS Apple Silicon (arm64) — runner macos-14 natif arm64
-          - os: macos-14
-            goos: darwin
-            goarch: arm64
-            output_name: clefs-macos-arm64
-            archive_name: clefs-macos-arm64.zip
-            cgo_enabled: "1"
-
+    name: Build Windows x64
+    runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,127 +22,93 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version-file: go.mod
 
-      - name: Install dependencies (Windows)
-        if: matrix.goos == 'windows'
-        run: choco install mingw -y
-      
-      - name: Get Go dependencies
-        run: go mod download
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      # --- Windows Build ---
-      - name: Build (Windows)
-        if: matrix.goos == 'windows'
-        env:
-          CGO_ENABLED: ${{ matrix.cgo_enabled }}
-        run: |
-          go build -ldflags="-s -w -H windowsgui" -o ${{ matrix.output_name }} ./cmd/main.go
-      
-      - name: Package (Windows)
-        if: matrix.goos == 'windows'
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+
+      - name: Run Go tests
+        run: go test ./...
+
+      # -webview2 error : si WebView2 manque sur un poste, l'application
+      # affiche un message clair au lieu de proposer une installation.
+      - name: Build
+        run: wails build -clean -trimpath -webview2 error -o clefs-windows-amd64.exe
+
+      - name: Package
         shell: pwsh
-        run: |
-          Compress-Archive -Path ${{ matrix.output_name }}, infos.txt -DestinationPath ${{ matrix.archive_name }}
+        run: Compress-Archive -Path build/bin/clefs-windows-amd64.exe, infos.txt -DestinationPath clefs-windows-amd64.zip
 
-      # --- macOS Build ---
-      # CGO requis par Fyne (frameworks Cocoa/Metal) ; toolchain Xcode déjà
-      # présente sur les runners macOS. Binaire non signé/notarisé : le
-      # contournement Gatekeeper est documenté dans infos.txt et les notes.
-      - name: Build (macOS)
-        if: matrix.goos == 'darwin'
-        env:
-          CGO_ENABLED: ${{ matrix.cgo_enabled }}
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          go build -ldflags="-s -w" -o ${{ matrix.output_name }} ./cmd/main.go
-
-      - name: Package (macOS)
-        if: matrix.goos == 'darwin'
-        run: |
-          chmod +x ${{ matrix.output_name }}
-          zip ${{ matrix.archive_name }} ${{ matrix.output_name }} infos.txt
-
-      # --- Upload Artifact ---
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: ${{ matrix.archive_name }}
+          name: build-windows-amd64
+          path: clefs-windows-amd64.zip
 
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
-
-      - name: Display structure
-        run: ls -R artifacts
-
-      - name: Prepare release files
-        run: |
-          mkdir -p release-files
-          find artifacts -name "*.zip" -exec cp -r {} release-files/ \;
-          ls -lh release-files/
+          name: build-windows-amd64
+          path: release-files
 
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create Release Notes
-        id: release_notes
         run: |
           cat > release_notes.md << 'EOF'
           # Gestionnaire de Clés ${{ steps.get_version.outputs.VERSION }}
-          
-          ## 📦 Fichiers disponibles
-          
-          ### Windows (64-bit)
-          - **clefs-windows-amd64.zip**: Archive contenant l'exécutable `clefs-windows-amd64.exe`.
 
-          ### macOS (Apple Silicon)
-          - **clefs-macos-arm64.zip**: Archive contenant l'exécutable `clefs-macos-arm64`.
-          
-          ## 🚀 Installation & Utilisation
+          ## 📦 Fichier disponible
 
-          **Important**: Avant le premier lancement, placez l'exécutable dans un dossier dédié et consultez `infos.txt`.
+          - **clefs-windows-amd64.zip** : l'exécutable `clefs-windows-amd64.exe` et la notice `infos.txt`.
 
-          ### Windows
-          1. Téléchargez et décompressez `clefs-windows-amd64.zip`.
-          2. Double-cliquez sur `clefs-windows-amd64.exe` pour lancer.
+          ## 🚀 Installation
 
-          ### macOS (Apple Silicon)
-          1. Téléchargez et décompressez `clefs-macos-arm64.zip`.
-          2. Ouvrez un terminal dans le dossier et lancez : `chmod +x clefs-macos-arm64` puis `./clefs-macos-arm64`.
-          3. Le binaire n'étant pas signé par Apple, macOS peut le bloquer au premier
-             lancement : faites **clic droit → Ouvrir** sur le fichier (ou retirez la
-             quarantaine avec `xattr -d com.apple.quarantine clefs-macos-arm64`).
-          
-          ## 📂 Structure des Fichiers
-          
-          Après le premier lancement, votre dossier ressemblera à ceci :
-          
+          1. Créez un **nouveau dossier** dédié (ex. `C:\Clefs-V4\`) et décompressez-y l'archive.
+          2. Double-cliquez sur `clefs-windows-amd64.exe`. Rien d'autre à installer.
+          3. Au premier lancement, l'assistant d'import propose de reprendre la base de l'ancienne version (`clefs.db`).
+
+          Windows peut afficher une alerte car l'exécutable n'est pas signé :
+          « Informations complémentaires » → « Exécuter quand même ».
+
+          ## 🔄 Mise à jour
+
+          - **Depuis une version 1, 2 ou 3** : nouvelle installation dans un nouveau dossier, puis import de l'ancienne base avec l'assistant (l'ancien dossier n'est pas modifié).
+          - **Depuis une version 4** : sauvegarde depuis l'application, fermeture sur tous les postes, puis remplacement du `.exe` dans le même dossier.
+
+          ## 📖 Prise en main
+
+          Le guide illustré en 7 étapes est sur la [page d'accueil du projet](https://github.com/${{ github.repository }}#-prise-en-main-en-7-étapes) ; l'aide est aussi intégrée à l'application (menu **Aide**).
+          Nouveautés de la version : [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md).
+
+          ## 📂 Structure du dossier
+
           ```
           MonDossierClefs/
-          ├── clefs-windows-amd64.exe (ou autre exécutable)
+          ├── clefs-windows-amd64.exe
           ├── infos.txt
-          ├── clefs.db (créé automatiquement)
-          ├── backups/ (sauvegardes automatiques)
-          └── documents/ (PDFs générés)
+          ├── clefs.db      (créé automatiquement)
+          ├── backups/      (sauvegardes)
+          └── documents/    (PDF et exports Excel)
           ```
-          
           EOF
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

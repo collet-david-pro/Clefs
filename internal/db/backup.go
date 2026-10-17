@@ -1,10 +1,8 @@
 package db
 
 import (
-	"database/sql"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -30,7 +28,9 @@ func BackupDatabase(dbPath string, backupPath string) error {
 	if err := os.Remove(backupPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("erreur lors de la suppression de l'ancienne sauvegarde: %w", err)
 	}
-	if _, err := DB.Exec("VACUUM INTO '" + backupPath + "'"); err != nil {
+	// Chemin passé en paramètre : une apostrophe dans le chemin (ex. dossier
+	// « d'Artagnan ») cassait la requête quand il était concaténé.
+	if _, err := DB.Exec("VACUUM INTO ?", backupPath); err != nil {
 		return fmt.Errorf("erreur lors de la sauvegarde: %w", err)
 	}
 	return nil
@@ -233,223 +233,6 @@ func formatFileSize(size int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
-}
-
-// ImportFromPythonDB importe les données depuis l'ancienne base de données Python
-func ImportFromPythonDB(pythonDBPath string, currentDBPath string) error {
-	// Vérifier que le fichier source existe
-	if _, err := os.Stat(pythonDBPath); os.IsNotExist(err) {
-		return fmt.Errorf("le fichier de base de données Python n'existe pas: %s", pythonDBPath)
-	}
-
-	// Créer une sauvegarde de la base actuelle avant l'importation
-	if err := CreateBackupDirectory(currentDBPath); err != nil {
-		return fmt.Errorf("erreur lors de la création du répertoire de sauvegarde: %w", err)
-	}
-
-	backupPath := GetDefaultBackupPath(currentDBPath)
-	if err := BackupDatabase(currentDBPath, backupPath); err != nil {
-		return fmt.Errorf("erreur lors de la sauvegarde de sécurité: %w", err)
-	}
-
-	// Ouvrir la base de données Python
-	pythonDB, err := sql.Open("sqlite", pythonDBPath)
-	if err != nil {
-		return fmt.Errorf("erreur lors de l'ouverture de la base Python: %w", err)
-	}
-	defer pythonDB.Close()
-
-	// Vérifier la connexion
-	if err := pythonDB.Ping(); err != nil {
-		return fmt.Errorf("erreur de connexion à la base Python: %w", err)
-	}
-
-	// Commencer une transaction sur la base actuelle
-	tx, err := DB.Begin()
-	if err != nil {
-		return fmt.Errorf("erreur lors du démarrage de la transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	buildingCount, err := importPythonBuildings(tx, pythonDB)
-	if err != nil {
-		return err
-	}
-	roomCount, err := importPythonRooms(tx, pythonDB)
-	if err != nil {
-		return err
-	}
-	keyCount, err := importPythonKeys(tx, pythonDB)
-	if err != nil {
-		return err
-	}
-	assocCount, err := importPythonAssociations(tx, pythonDB)
-	if err != nil {
-		return err
-	}
-	borrowerCount, err := importPythonBorrowers(tx, pythonDB)
-	if err != nil {
-		return err
-	}
-	loanCount, err := importPythonLoans(tx, pythonDB)
-	if err != nil {
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("erreur lors de la validation de la transaction: %w", err)
-	}
-
-	log.Printf("Importation réussie: %d bâtiments, %d salles, %d clés, %d associations, %d emprunteurs, %d emprunts",
-		buildingCount, roomCount, keyCount, assocCount, borrowerCount, loanCount)
-	return nil
-}
-
-// Les fonctions importPython* ci-dessous lisent chacune une table de l'ancienne
-// base Python (src) et la recopient dans la transaction d'import (tx) avec
-// INSERT OR IGNORE (on conserve les id d'origine, les doublons sont ignorés).
-// Elles retournent le nombre de lignes importées. Toutes partagent ce patron.
-
-// importPythonBuildings importe la table buildings.
-func importPythonBuildings(tx *sql.Tx, src *sql.DB) (int, error) {
-	rows, err := src.Query("SELECT id, name FROM buildings ORDER BY id")
-	if err != nil {
-		return 0, fmt.Errorf("erreur lecture bâtiments: %w", err)
-	}
-	defer rows.Close()
-	count := 0
-	for rows.Next() {
-		var id int
-		var name string
-		if err := rows.Scan(&id, &name); err != nil {
-			return 0, fmt.Errorf("erreur scan bâtiment: %w", err)
-		}
-		if _, err := tx.Exec("INSERT OR IGNORE INTO buildings (id, name) VALUES (?, ?)", id, name); err != nil {
-			return 0, fmt.Errorf("erreur insertion bâtiment: %w", err)
-		}
-		count++
-	}
-	return count, rows.Err()
-}
-
-// importPythonRooms importe la table rooms (salles/accès).
-func importPythonRooms(tx *sql.Tx, src *sql.DB) (int, error) {
-	rows, err := src.Query("SELECT id, name, type, building_id FROM rooms ORDER BY id")
-	if err != nil {
-		return 0, fmt.Errorf("erreur lecture salles: %w", err)
-	}
-	defer rows.Close()
-	count := 0
-	for rows.Next() {
-		var id int
-		var name, roomType sql.NullString
-		var buildingID sql.NullInt64
-		if err := rows.Scan(&id, &name, &roomType, &buildingID); err != nil {
-			return 0, fmt.Errorf("erreur scan salle: %w", err)
-		}
-		if _, err := tx.Exec("INSERT OR IGNORE INTO rooms (id, name, type, building_id) VALUES (?, ?, ?, ?)",
-			id, name.String, roomType.String, buildingID.Int64); err != nil {
-			return 0, fmt.Errorf("erreur insertion salle: %w", err)
-		}
-		count++
-	}
-	return count, rows.Err()
-}
-
-// importPythonKeys importe la table keys.
-func importPythonKeys(tx *sql.Tx, src *sql.DB) (int, error) {
-	rows, err := src.Query("SELECT id, number, description, quantity_total, quantity_reserve, storage_location FROM keys ORDER BY id")
-	if err != nil {
-		return 0, fmt.Errorf("erreur lecture clés: %w", err)
-	}
-	defer rows.Close()
-	count := 0
-	for rows.Next() {
-		var id int
-		var number string
-		var description, storageLocation sql.NullString
-		var quantityTotal, quantityReserve sql.NullInt64
-		if err := rows.Scan(&id, &number, &description, &quantityTotal, &quantityReserve, &storageLocation); err != nil {
-			return 0, fmt.Errorf("erreur scan clé: %w", err)
-		}
-		if _, err := tx.Exec("INSERT OR IGNORE INTO keys (id, number, description, quantity_total, quantity_reserve, storage_location) VALUES (?, ?, ?, ?, ?, ?)",
-			id, number, description.String, quantityTotal.Int64, quantityReserve.Int64, storageLocation.String); err != nil {
-			return 0, fmt.Errorf("erreur insertion clé: %w", err)
-		}
-		count++
-	}
-	return count, rows.Err()
-}
-
-// importPythonAssociations importe la table de liaison clé<->salle.
-func importPythonAssociations(tx *sql.Tx, src *sql.DB) (int, error) {
-	rows, err := src.Query("SELECT key_id, room_id FROM key_room_association")
-	if err != nil {
-		return 0, fmt.Errorf("erreur lecture associations: %w", err)
-	}
-	defer rows.Close()
-	count := 0
-	for rows.Next() {
-		var keyID, roomID int
-		if err := rows.Scan(&keyID, &roomID); err != nil {
-			return 0, fmt.Errorf("erreur scan association: %w", err)
-		}
-		if _, err := tx.Exec("INSERT OR IGNORE INTO key_room_association (key_id, room_id) VALUES (?, ?)", keyID, roomID); err != nil {
-			return 0, fmt.Errorf("erreur insertion association: %w", err)
-		}
-		count++
-	}
-	return count, rows.Err()
-}
-
-// importPythonBorrowers importe la table borrowers (détenteurs).
-func importPythonBorrowers(tx *sql.Tx, src *sql.DB) (int, error) {
-	rows, err := src.Query("SELECT id, name, email FROM borrowers ORDER BY id")
-	if err != nil {
-		return 0, fmt.Errorf("erreur lecture emprunteurs: %w", err)
-	}
-	defer rows.Close()
-	count := 0
-	for rows.Next() {
-		var id int
-		var name string
-		var email sql.NullString
-		if err := rows.Scan(&id, &name, &email); err != nil {
-			return 0, fmt.Errorf("erreur scan emprunteur: %w", err)
-		}
-		if _, err := tx.Exec("INSERT OR IGNORE INTO borrowers (id, name, email) VALUES (?, ?, ?)", id, name, email.String); err != nil {
-			return 0, fmt.Errorf("erreur insertion emprunteur: %w", err)
-		}
-		count++
-	}
-	return count, rows.Err()
-}
-
-// importPythonLoans importe la table loans (emprunts).
-func importPythonLoans(tx *sql.Tx, src *sql.DB) (int, error) {
-	rows, err := src.Query("SELECT id, key_id, borrower_id, loan_date, return_date FROM loans ORDER BY id")
-	if err != nil {
-		return 0, fmt.Errorf("erreur lecture emprunts: %w", err)
-	}
-	defer rows.Close()
-	count := 0
-	for rows.Next() {
-		var id, keyID, borrowerID int
-		var loanDate, returnDate sql.NullString
-		if err := rows.Scan(&id, &keyID, &borrowerID, &loanDate, &returnDate); err != nil {
-			return 0, fmt.Errorf("erreur scan emprunt: %w", err)
-		}
-		var returnDateValue interface{}
-		if returnDate.Valid && returnDate.String != "" {
-			returnDateValue = returnDate.String
-		}
-		if _, err := tx.Exec("INSERT OR IGNORE INTO loans (id, key_id, borrower_id, loan_date, return_date) VALUES (?, ?, ?, ?, ?)",
-			id, keyID, borrowerID, loanDate.String, returnDateValue); err != nil {
-			return 0, fmt.Errorf("erreur insertion emprunt: %w", err)
-		}
-		count++
-	}
-	return count, rows.Err()
 }
 
 // GenerateDemoData remplit la base de données avec des données de test

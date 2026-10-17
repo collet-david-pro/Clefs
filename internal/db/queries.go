@@ -62,8 +62,8 @@ func CreateKey(k *Key, roomIDs []int) error {
 	}
 	defer tx.Rollback()
 
-	result, err := tx.Exec(`INSERT INTO keys (number, description, quantity_total, quantity_reserve, storage_location) VALUES (?, ?, ?, ?, ?)`,
-		k.Number, k.Description, k.QuantityTotal, k.QuantityReserve, k.StorageLocation)
+	result, err := tx.Exec(`INSERT INTO keys (number, description, quantity_total, quantity_reserve, storage_location, category, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		k.Number, k.Description, k.QuantityTotal, k.QuantityReserve, k.StorageLocation, keyCategoryOrDefault(k.Category), k.Notes)
 	if err != nil {
 		return err
 	}
@@ -93,8 +93,8 @@ func UpdateKey(k *Key, roomIDs []int) error {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec(`UPDATE keys SET number = ?, description = ?, quantity_total = ?, quantity_reserve = ?, storage_location = ? WHERE id = ?`,
-		k.Number, k.Description, k.QuantityTotal, k.QuantityReserve, k.StorageLocation, k.ID)
+	_, err = tx.Exec(`UPDATE keys SET number = ?, description = ?, quantity_total = ?, quantity_reserve = ?, storage_location = ?, category = ?, notes = ? WHERE id = ?`,
+		k.Number, k.Description, k.QuantityTotal, k.QuantityReserve, k.StorageLocation, keyCategoryOrDefault(k.Category), k.Notes, k.ID)
 	if err != nil {
 		return err
 	}
@@ -114,6 +114,15 @@ func UpdateKey(k *Key, roomIDs []int) error {
 	}
 
 	return tx.Commit()
+}
+
+// keyCategoryOrDefault retourne la catégorie de clé, ou "simple" (valeur par
+// défaut du schéma) si elle est vide.
+func keyCategoryOrDefault(c string) string {
+	if c == "" {
+		return "simple"
+	}
+	return c
 }
 
 // UpdateKeyQuantityTotal met à jour uniquement le stock total d'une clé, sans
@@ -156,6 +165,25 @@ func GetRoomsForKey(keyID int) ([]Room, error) {
 		rooms = append(rooms, r)
 	}
 	return rooms, rows.Err()
+}
+
+// GetKeyAccessMap retourne, pour chaque clé, la liste des IDs d'accès qu'elle
+// ouvre, en une seule requête (évite une requête par clé dans les listes).
+func GetKeyAccessMap() (map[int][]int, error) {
+	rows, err := DB.Query(`SELECT key_id, room_id FROM key_room_association ORDER BY key_id, room_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	m := make(map[int][]int)
+	for rows.Next() {
+		var keyID, roomID int
+		if err := rows.Scan(&keyID, &roomID); err != nil {
+			return nil, err
+		}
+		m[keyID] = append(m[keyID], roomID)
+	}
+	return m, rows.Err()
 }
 
 // ============= BORROWERS =============
@@ -206,9 +234,19 @@ func scanBorrowers(rows *sql.Rows) ([]Borrower, error) {
 	return borrowers, rows.Err()
 }
 
-// CreateBorrower crée un nouvel emprunteur
+// borrowerStatusOrDefault retourne le statut du détenteur, ou "permanent"
+// (valeur par défaut du schéma) s'il est vide.
+func borrowerStatusOrDefault(s string) string {
+	if s == "" {
+		return "permanent"
+	}
+	return s
+}
+
+// CreateBorrower crée un nouvel emprunteur (statut et téléphone compris).
 func CreateBorrower(b *Borrower) error {
-	result, err := DB.Exec(`INSERT INTO borrowers (name, email) VALUES (?, ?)`, b.Name, b.Email)
+	result, err := DB.Exec(`INSERT INTO borrowers (name, email, status, phone) VALUES (?, ?, ?, ?)`,
+		b.Name, b.Email, borrowerStatusOrDefault(b.Status), b.Phone)
 	if err != nil {
 		return err
 	}
@@ -220,9 +258,10 @@ func CreateBorrower(b *Borrower) error {
 	return nil
 }
 
-// UpdateBorrower met à jour un emprunteur
+// UpdateBorrower met à jour un emprunteur (statut et téléphone compris).
 func UpdateBorrower(b *Borrower) error {
-	_, err := DB.Exec(`UPDATE borrowers SET name = ?, email = ? WHERE id = ?`, b.Name, b.Email, b.ID)
+	_, err := DB.Exec(`UPDATE borrowers SET name = ?, email = ?, status = ?, phone = ? WHERE id = ?`,
+		b.Name, b.Email, borrowerStatusOrDefault(b.Status), b.Phone, b.ID)
 	return err
 }
 
@@ -252,16 +291,6 @@ func GetAllBuildings() ([]Building, error) {
 		buildings = append(buildings, b)
 	}
 	return buildings, rows.Err()
-}
-
-// GetBuildingByID récupère un bâtiment par son ID
-func GetBuildingByID(id int) (*Building, error) {
-	var b Building
-	err := DB.QueryRow(`SELECT id, name FROM buildings WHERE id = ?`, id).Scan(&b.ID, &b.Name)
-	if err != nil {
-		return nil, err
-	}
-	return &b, nil
 }
 
 // CreateBuilding crée un nouveau bâtiment
@@ -302,51 +331,6 @@ func GetAllAccesses() ([]Room, error) {
 	}
 	defer rows.Close()
 	return scanRooms(rows)
-}
-
-// GetRoomByID récupère un accès par son ID
-func GetRoomByID(id int) (*Room, error) {
-	rows, err := DB.Query(roomSelectSQL+` WHERE id = ?`, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	rooms, err := scanRooms(rows)
-	if err != nil {
-		return nil, err
-	}
-	if len(rooms) == 0 {
-		return nil, sql.ErrNoRows
-	}
-	return &rooms[0], nil
-}
-
-// GetAccessesByBuilding récupère les accès d'un bâtiment
-func GetAccessesByBuilding(buildingID int) ([]Room, error) {
-	rows, err := DB.Query(roomSelectSQL+` WHERE building_id = ? ORDER BY name`, buildingID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanRooms(rows)
-}
-
-// GetRoomsByBuildingID est un alias de GetAccessesByBuilding
-func GetRoomsByBuildingID(buildingID int) ([]Room, error) { return GetAccessesByBuilding(buildingID) }
-
-// GetKeysForAccess récupère les clés associées à un accès
-func GetKeysForAccess(accessID int) ([]Key, error) {
-	rows, err := DB.Query(`
-		SELECT k.id, k.number, k.description, k.quantity_total, k.quantity_reserve, k.storage_location, k.category, k.notes
-		FROM keys k
-		INNER JOIN key_room_association kra ON k.id = kra.key_id
-		WHERE kra.room_id = ?
-		ORDER BY k.number`, accessID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanKeys(rows)
 }
 
 // CreateRoom crée un nouvel accès avec tous les champs V3
@@ -699,81 +683,39 @@ func GetBorrowerActiveLoanCount(borrowerID int) (int, error) {
 	return count, err
 }
 
-// GetKeyPlanData récupère les données pour le plan de clés
-func GetKeyPlanData() (map[int]Building, error) {
-	buildings, err := GetAllBuildings()
-	if err != nil {
-		return nil, err
-	}
-
-	buildingMap := make(map[int]Building)
-	for _, building := range buildings {
-		// Récupérer les salles du bâtiment
-		rooms, err := GetRoomsByBuildingID(building.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		// Pour chaque salle, récupérer les clés
-		for i := range rooms {
-			keys, err := GetKeysForRoom(rooms[i].ID)
-			if err != nil {
-				return nil, err
-			}
-			rooms[i].Keys = keys
-		}
-
-		building.Rooms = rooms
-		buildingMap[building.ID] = building
-	}
-
-	return buildingMap, nil
-}
-
-// GetKeysForRoom récupère les clés associées à une salle
-func GetKeysForRoom(roomID int) ([]Key, error) {
-	rows, err := DB.Query(`
-		SELECT k.id, k.number, k.description, k.quantity_total, k.quantity_reserve, k.storage_location
-		FROM keys k
-		INNER JOIN key_room_association kra ON k.id = kra.key_id
-		WHERE kra.room_id = ?
-		ORDER BY k.number`, roomID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var keys []Key
-	for rows.Next() {
-		var k Key
-		var storageLocation sql.NullString
-		err := rows.Scan(&k.ID, &k.Number, &k.Description, &k.QuantityTotal, &k.QuantityReserve, &storageLocation)
-		if err != nil {
-			return nil, err
-		}
-		if storageLocation.Valid {
-			k.StorageLocation = storageLocation.String
-		}
-		keys = append(keys, k)
-	}
-	return keys, rows.Err()
+// LoanOptions regroupe les informations facultatives d'une remise de clés.
+// Les colonnes existent depuis la V3 mais n'étaient pas enregistrées avant la
+// V4 (elles n'apparaissaient que sur le bon PDF).
+type LoanOptions struct {
+	PlannedReturnDate *time.Time // retour prévu, nil si non renseigné
+	LoanType          string     // ponctuel (défaut) ou permanent
+	CreatedBy         string     // agent ayant enregistré la remise
 }
 
 // CreateMultipleLoans crée plusieurs emprunts pour un emprunteur.
 // La disponibilité est vérifiée en amont par l'interface — pas de requête imbriquée
 // dans la transaction pour éviter le deadlock avec SetMaxOpenConns(1).
-func CreateMultipleLoans(keyIDs []int, borrowerID int) ([]int, error) {
+func CreateMultipleLoans(keyIDs []int, borrowerID int, opts LoanOptions) ([]int, error) {
 	tx, err := DB.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
+	loanType := opts.LoanType
+	if loanType == "" {
+		loanType = "ponctuel"
+	}
+	var planned interface{}
+	if opts.PlannedReturnDate != nil {
+		planned = *opts.PlannedReturnDate
+	}
+
 	now := time.Now()
 	loanIDs := make([]int, 0, len(keyIDs))
 	for _, keyID := range keyIDs {
-		res, err := tx.Exec(`INSERT INTO loans (key_id, borrower_id, loan_date) VALUES (?, ?, ?)`,
-			keyID, borrowerID, now)
+		res, err := tx.Exec(`INSERT INTO loans (key_id, borrower_id, loan_date, planned_return_date, loan_type, created_by) VALUES (?, ?, ?, ?, ?, ?)`,
+			keyID, borrowerID, now, planned, loanType, opts.CreatedBy)
 		if err != nil {
 			return nil, err
 		}
@@ -820,7 +762,31 @@ func CheckInventoryAnomalies() ([]InventoryAnomaly, error) {
 	return anomalies, rows.Err()
 }
 
-// GetLoanDuration calcule la durée d'un emprunt en jours
-func GetLoanDuration(loanDate time.Time) float64 {
-	return time.Since(loanDate).Hours() / 24
+// InventoryCount est le nombre d'exemplaires d'une clé comptés en stock
+// (physiquement présents, réserve comprise) lors d'un inventaire.
+type InventoryCount struct {
+	KeyID   int
+	InStock int
+}
+
+// ApplyInventory met à jour, en une seule transaction, le stock des clés
+// comptées : total = exemplaires comptés en stock + exemplaires prêtés. La
+// réserve, physiquement en stock, est ramenée au nombre compté si elle le
+// dépasse. Le nombre de prêts est calculé dans la même instruction SQL :
+// aucune requête imbriquée pendant la transaction (cf. SetMaxOpenConns(1)).
+func ApplyInventory(counts []InventoryCount) error {
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, c := range counts {
+		if _, err := tx.Exec(`UPDATE keys SET
+				quantity_total = ? + (SELECT COUNT(*) FROM loans l WHERE l.key_id = keys.id AND l.return_date IS NULL),
+				quantity_reserve = MIN(quantity_reserve, ?)
+			WHERE id = ?`, c.InStock, c.InStock, c.KeyID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

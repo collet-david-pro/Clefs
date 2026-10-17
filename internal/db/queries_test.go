@@ -9,7 +9,7 @@ func TestLoanLifecycle(t *testing.T) {
 	k := mustCreateKey(t, "K-01", 3, 1)
 	b := mustCreateBorrower(t, "Alice")
 
-	if _, err := CreateMultipleLoans([]int{k.ID}, b.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, b.ID, LoanOptions{}); err != nil {
 		t.Fatalf("CreateMultipleLoans: %v", err)
 	}
 
@@ -61,7 +61,7 @@ func TestCreateMultipleLoansSeveralKeys(t *testing.T) {
 	k2 := mustCreateKey(t, "K-02", 2, 0)
 	b := mustCreateBorrower(t, "Bob")
 
-	loanIDs, err := CreateMultipleLoans([]int{k1.ID, k2.ID}, b.ID)
+	loanIDs, err := CreateMultipleLoans([]int{k1.ID, k2.ID}, b.ID, LoanOptions{})
 	if err != nil {
 		t.Fatalf("CreateMultipleLoans: %v", err)
 	}
@@ -96,11 +96,11 @@ func TestOverloanAllowed(t *testing.T) {
 	alice := mustCreateBorrower(t, "Alice")
 	bob := mustCreateBorrower(t, "Bob")
 
-	if _, err := CreateMultipleLoans([]int{k.ID}, alice.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, alice.ID, LoanOptions{}); err != nil {
 		t.Fatalf("premier prêt: %v", err)
 	}
 	// Deuxième prêt du même exemplaire : doit passer sans erreur.
-	if _, err := CreateMultipleLoans([]int{k.ID}, bob.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, bob.ID, LoanOptions{}); err != nil {
 		t.Fatalf("sur-prêt refusé alors qu'il doit être autorisé: %v", err)
 	}
 
@@ -119,7 +119,7 @@ func TestUpdateKeyQuantityTotal(t *testing.T) {
 	setupTestDB(t)
 	k := mustCreateKey(t, "K-01", 5, 0)
 	b := mustCreateBorrower(t, "Alice")
-	if _, err := CreateMultipleLoans([]int{k.ID}, b.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{k.ID}, b.ID, LoanOptions{}); err != nil {
 		t.Fatalf("CreateMultipleLoans: %v", err)
 	}
 
@@ -149,7 +149,7 @@ func TestCheckInventoryAnomalies(t *testing.T) {
 	alice := mustCreateBorrower(t, "Alice")
 	bob := mustCreateBorrower(t, "Bob")
 
-	if _, err := CreateMultipleLoans([]int{sain.ID, surpret.ID}, alice.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{sain.ID, surpret.ID}, alice.ID, LoanOptions{}); err != nil {
 		t.Fatalf("prêts initiaux: %v", err)
 	}
 	anomalies, err := CheckInventoryAnomalies()
@@ -161,7 +161,7 @@ func TestCheckInventoryAnomalies(t *testing.T) {
 	}
 
 	// Deuxième sortie du seul exemplaire de K-02 → sur-prêt
-	if _, err := CreateMultipleLoans([]int{surpret.ID}, bob.ID); err != nil {
+	if _, err := CreateMultipleLoans([]int{surpret.ID}, bob.ID, LoanOptions{}); err != nil {
 		t.Fatalf("sur-prêt: %v", err)
 	}
 	anomalies, err = CheckInventoryAnomalies()
@@ -174,5 +174,53 @@ func TestCheckInventoryAnomalies(t *testing.T) {
 	a := anomalies[0]
 	if a.KeyNumber != "K-02" || a.Loaned != 2 || a.Available != -1 || a.Total != 1 {
 		t.Errorf("anomalie inattendue : %+v", a)
+	}
+}
+
+// TestApplyInventory vérifie la règle de l'inventaire : total = compté +
+// prêtés, réserve ramenée au compté si besoin, sur-prêt résorbé.
+func TestApplyInventory(t *testing.T) {
+	setupTestDB(t)
+	retrouvee := mustCreateKey(t, "K-RETROUVEE", 2, 0)
+	cassee := mustCreateKey(t, "K-CASSEE", 3, 2)
+	surpret := mustCreateKey(t, "K-SURPRET", 1, 0)
+	intacte := mustCreateKey(t, "K-INTACTE", 4, 1)
+	alice := mustCreateBorrower(t, "Alice")
+	bob := mustCreateBorrower(t, "Bob")
+	if _, err := CreateMultipleLoans([]int{retrouvee.ID, surpret.ID}, alice.ID, LoanOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CreateMultipleLoans([]int{surpret.ID}, bob.ID, LoanOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	err := ApplyInventory([]InventoryCount{
+		{KeyID: retrouvee.ID, InStock: 3}, // 1 prêtée + 3 comptées = 4
+		{KeyID: cassee.ID, InStock: 1},    // réserve 2 ramenée à 1
+		{KeyID: surpret.ID, InStock: 0},   // 2 prêtées, 0 en stock : total 2, plus d'erreur
+	})
+	if err != nil {
+		t.Fatalf("ApplyInventory: %v", err)
+	}
+
+	cases := []struct {
+		key                       *Key
+		total, reserve, available int
+	}{
+		{retrouvee, 4, 0, 3},
+		{cassee, 1, 1, 0},
+		{surpret, 2, 0, 0},
+		{intacte, 4, 1, 3}, // non comptée : inchangée
+	}
+	for _, c := range cases {
+		got := availabilityOf(t, c.key.ID)
+		if got.QuantityTotal != c.total || got.QuantityReserve != c.reserve || got.AvailableCount != c.available {
+			t.Errorf("%s: total %d réserve %d dispo %d, attendu %d/%d/%d", c.key.Number,
+				got.QuantityTotal, got.QuantityReserve, got.AvailableCount, c.total, c.reserve, c.available)
+		}
+	}
+	anomalies, err := CheckInventoryAnomalies()
+	if err != nil || len(anomalies) != 0 {
+		t.Errorf("l'inventaire doit résorber le sur-prêt: %v, %v", anomalies, err)
 	}
 }

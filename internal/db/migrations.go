@@ -35,6 +35,18 @@ var migrations = []migration{
 			ALTER TABLE keys ADD COLUMN notes TEXT;
 		`,
 	},
+	{
+		// Ajout pur (nouvelle table) : les bases et sauvegardes antérieures
+		// restent importables, la table est créée à leur ouverture.
+		version:     3,
+		description: "V4 — paramètres de l'application",
+		sql: `
+			CREATE TABLE IF NOT EXISTS settings (
+				key   TEXT PRIMARY KEY,
+				value TEXT NOT NULL
+			);
+		`,
+	},
 }
 
 // applyMigrations crée la table schema_version si absente et applique les migrations manquantes.

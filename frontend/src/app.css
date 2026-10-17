@@ -1,0 +1,283 @@
+/*
+ * THÈME DE L'APPLICATION — fichier unique de personnalisation visuelle.
+ *
+ * Toute l'apparence se règle ici :
+ *   1. les couleurs (clair et sombre) dans :root et .dark ;
+ *   2. la typographie, les rayons et les ombres dans @theme ;
+ *   3. les composants de base (.btn, .input, .card, .badge…) dans @layer components.
+ * Les pages n'utilisent que ces jetons (bg-surface, text-muted, btn-primary…) :
+ * changer une couleur ici la change partout.
+ */
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/* Mode sombre piloté par la classe .dark sur <html> (voir lib/state.svelte.ts). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --c-bg: #f5f6fa;
+  --c-surface: #ffffff;
+  --c-surface-2: #f0f2f7;
+  --c-border: #e3e6ee;
+  --c-text: #141a26;
+  --c-muted: #667085;
+
+  --c-primary: #4f46e5;
+  --c-primary-hover: #4338ca;
+  --c-primary-soft: #eef0ff;
+  --c-primary-fg: #ffffff;
+
+  --c-success: #0e8a5f;
+  --c-success-soft: #e7f7f0;
+  --c-warning: #b45309;
+  --c-warning-soft: #fdf3e2;
+  --c-danger: #d92d20;
+  --c-danger-soft: #fdecea;
+  --c-info: #2563eb;
+  --c-info-soft: #e8f0fe;
+
+  --c-sidebar: #111827;
+  --c-sidebar-text: #c7cdd9;
+  --c-sidebar-active: #1f2937;
+  --c-sidebar-accent: #4f46e5;
+  --c-sidebar-accent-hover: #5b52f0;
+  --c-sidebar-icon: #a5b0fb;
+}
+
+.dark {
+  --c-bg: #0c1018;
+  --c-surface: #141a24;
+  --c-surface-2: #1b2230;
+  --c-border: #273041;
+  --c-text: #e7eaf0;
+  --c-muted: #8d97a8;
+
+  --c-primary: #818cf8;
+  --c-primary-hover: #a5b0fb;
+  --c-primary-soft: rgb(99 102 241 / 0.16);
+  --c-primary-fg: #0c1018;
+
+  --c-success: #34d399;
+  --c-success-soft: rgb(16 185 129 / 0.14);
+  --c-warning: #fbbf24;
+  --c-warning-soft: rgb(245 158 11 / 0.14);
+  --c-danger: #f87171;
+  --c-danger-soft: rgb(239 68 68 / 0.15);
+  --c-info: #60a5fa;
+  --c-info-soft: rgb(59 130 246 / 0.15);
+
+  --c-sidebar: #090c12;
+  --c-sidebar-text: #b4bccb;
+  --c-sidebar-active: #161c27;
+  --c-sidebar-accent: #4f46e5;
+  --c-sidebar-accent-hover: #5b52f0;
+  --c-sidebar-icon: #a5b0fb;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-line: var(--c-border);
+  --color-ink: var(--c-text);
+  --color-muted: var(--c-muted);
+
+  --color-primary: var(--c-primary);
+  --color-primary-hover: var(--c-primary-hover);
+  --color-primary-soft: var(--c-primary-soft);
+  --color-primary-fg: var(--c-primary-fg);
+
+  --color-success: var(--c-success);
+  --color-success-soft: var(--c-success-soft);
+  --color-warning: var(--c-warning);
+  --color-warning-soft: var(--c-warning-soft);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-info: var(--c-info);
+  --color-info-soft: var(--c-info-soft);
+
+  --color-sidebar: var(--c-sidebar);
+  --color-sidebar-text: var(--c-sidebar-text);
+  --color-sidebar-active: var(--c-sidebar-active);
+  --color-sidebar-accent: var(--c-sidebar-accent);
+  --color-sidebar-accent-hover: var(--c-sidebar-accent-hover);
+  --color-sidebar-icon: var(--c-sidebar-icon);
+
+  --radius-card: 0.875rem;
+  --radius-control: 0.625rem;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-pop: 0 12px 32px -8px rgb(16 24 40 / 0.25);
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg font-sans text-[14px] text-ink antialiased;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [data-selectable] {
+    user-select: text;
+  }
+  ::selection {
+    background: var(--c-primary-soft);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-border) transparent;
+  }
+  :focus-visible {
+    outline: 2px solid var(--c-primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Boutons */
+  .btn {
+    @apply inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-control px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-sm {
+    @apply h-8 px-2.5 text-[12.5px];
+  }
+  .btn-lg {
+    @apply h-11 px-5 text-[14px];
+  }
+  .btn-icon {
+    @apply w-9 px-0;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-fg hover:bg-primary-hover;
+  }
+  .btn-secondary {
+    @apply border border-line bg-surface text-ink hover:bg-surface-2;
+  }
+  .btn-ghost {
+    @apply text-muted hover:bg-surface-2 hover:text-ink;
+  }
+  .btn-danger {
+    @apply bg-danger text-white hover:opacity-90;
+  }
+  .btn-danger-ghost {
+    @apply text-danger hover:bg-danger-soft;
+  }
+
+  /* Champs de saisie */
+  .input {
+    @apply h-9 w-full rounded-control border border-line bg-surface px-3 text-[13.5px] text-ink placeholder:text-muted/70 focus:border-primary focus:ring-3 focus:ring-primary-soft focus:outline-none;
+  }
+  textarea.input {
+    @apply h-auto py-2;
+  }
+  .input-error {
+    @apply border-danger focus:border-danger focus:ring-danger-soft;
+  }
+  .label {
+    @apply mb-1.5 block text-[12.5px] font-medium text-ink;
+  }
+  .hint {
+    @apply mt-1 text-[12px] text-muted;
+  }
+  .error-text {
+    @apply mt-1 text-[12px] text-danger;
+  }
+
+  /* Cartes et sections */
+  .card {
+    @apply rounded-card border border-line bg-surface shadow-card;
+  }
+  .section-title {
+    @apply text-[13px] font-semibold tracking-wide text-muted uppercase;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex h-5.5 items-center gap-1 rounded-full px-2 text-[11.5px] font-medium whitespace-nowrap;
+  }
+  .badge-neutral {
+    @apply bg-surface-2 text-muted;
+  }
+  .badge-primary {
+    @apply bg-primary-soft text-primary;
+  }
+  .badge-success {
+    @apply bg-success-soft text-success;
+  }
+  .badge-warning {
+    @apply bg-warning-soft text-warning;
+  }
+  .badge-danger {
+    @apply bg-danger-soft text-danger;
+  }
+  .badge-info {
+    @apply bg-info-soft text-info;
+  }
+
+  /* Pastilles (clés, accès) */
+  .chip {
+    @apply inline-flex h-6 items-center gap-1 rounded-md border border-line bg-surface-2 px-2 text-[12px] font-medium text-ink;
+  }
+  .chip-key {
+    @apply font-mono text-[11.5px];
+  }
+
+  /* Tableaux */
+  .table {
+    @apply w-full text-left text-[13px];
+  }
+  .table th {
+    @apply sticky top-0 z-[1] border-b border-line bg-surface px-4 py-2.5 text-[11.5px] font-semibold tracking-wide text-muted uppercase;
+  }
+  .table td {
+    @apply border-b border-line px-4 py-3 align-middle;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  .table-hover tbody tr {
+    @apply cursor-pointer transition-colors hover:bg-surface-2;
+  }
+
+  /* Alertes */
+  .alert {
+    @apply flex items-start gap-3 rounded-control border px-4 py-3 text-[13px];
+  }
+  .alert-danger {
+    @apply border-danger/25 bg-danger-soft text-ink;
+  }
+  .alert-warning {
+    @apply border-warning/25 bg-warning-soft text-ink;
+  }
+  .alert-info {
+    @apply border-info/25 bg-info-soft text-ink;
+  }
+  .alert-success {
+    @apply border-success/25 bg-success-soft text-ink;
+  }
+
+  /* Contrôle segmenté (ex. ponctuel / permanent) */
+  .segmented {
+    @apply inline-flex rounded-control border border-line bg-surface-2 p-0.5;
+  }
+  .segmented button {
+    @apply h-8 cursor-pointer rounded-[calc(var(--radius-control)-2px)] px-3 text-[12.5px] font-medium text-muted transition-colors;
+  }
+  .segmented button[aria-pressed='true'] {
+    @apply bg-surface text-ink shadow-sm;
+  }
+
+  .kbd {
+    @apply inline-flex h-5 items-center rounded border border-line bg-surface-2 px-1.5 font-mono text-[10.5px] text-muted;
+  }
+}
+
+/* Menu latéral : barre de défilement discrète sur fond sombre. */
+.sidebar-nav {
+  scrollbar-color: rgb(255 255 255 / 0.15) transparent;
+}

@@ -1,96 +1,63 @@
-# Makefile pour Gestionnaire de Clés
+# Makefile du Gestionnaire de Clés (V4 — Go + Wails, Windows x64)
+#
+# Prérequis (poste de développement uniquement) : Go, Node.js + npm, CLI Wails v2
+#   go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
 
-.PHONY: all build run clean install-deps build-all help
+.PHONY: help install-deps dev build package captures bindings test check lint clean
 
-# Variables
 APP_NAME=clefs
-BUILD_DIR=build
-CMD_DIR=./cmd
-
-# Couleurs pour les messages
-GREEN=\033[0;32m
-YELLOW=\033[1;33m
-NC=\033[0m # No Color
-
-all: build
 
 help:
-	@echo "$(GREEN)Gestionnaire de Clés - Commandes disponibles:$(NC)"
-	@echo "  make run           - Exécuter l'application en mode développement"
-	@echo "  make build         - Compiler pour votre système"
-	@echo "  make build-all     - Compiler pour tous les systèmes (Windows, Mac, Linux)"
-	@echo "  make install-deps  - Installer les dépendances Go"
-	@echo "  make clean         - Nettoyer les fichiers de build"
-	@echo "  make test          - Lancer les tests (si disponibles)"
+	@echo "Gestionnaire de Clés — commandes disponibles :"
+	@echo "  make install-deps  Installer les dépendances Go et npm"
+	@echo "  make dev           Lancer en développement (rechargement à chaud)"
+	@echo "  make build         Compiler l'exécutable Windows (build/bin/clefs.exe)"
+	@echo "  make package       Compiler + archive build/release/clefs-windows-amd64.zip"
+	@echo "  make captures      Régénérer les captures du README (docs/images)"
+	@echo "  make bindings      Régénérer les liaisons JavaScript des services Go"
+	@echo "  make test          Lancer les tests Go"
+	@echo "  make check         Vérifier les types de l'interface (svelte-check)"
+	@echo "  make lint          gofmt + go vet + recherche de code mort"
+	@echo "  make clean         Supprimer les fichiers compilés"
 
 install-deps:
-	@echo "$(YELLOW)Installation des dépendances...$(NC)"
 	go mod download
-	go mod tidy
-	@echo "$(GREEN)✓ Dépendances installées$(NC)"
+	cd frontend && npm install
 
-run:
-	@echo "$(YELLOW)Démarrage de l'application...$(NC)"
-	go run $(CMD_DIR)/main.go
+dev:
+	wails dev
 
-build:
-	@echo "$(YELLOW)Compilation pour votre système...$(NC)"
-	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(APP_NAME) $(CMD_DIR)/main.go
-	@echo "$(GREEN)✓ Compilation terminée: $(BUILD_DIR)/$(APP_NAME)$(NC)"
+# -webview2 error : si le moteur WebView2 manque, message clair, jamais
+# d'installation proposée (règle « rien à installer sur les postes »).
+# Pas de -clean : il effacerait build/bin, où se trouve la base de test locale.
+build: bindings
+	wails build -skipbindings -trimpath -webview2 error
 
-build-windows:
-	@echo "$(YELLOW)Compilation pour Windows...$(NC)"
-	@mkdir -p $(BUILD_DIR)
-	GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/$(APP_NAME)-windows.exe $(CMD_DIR)/main.go
-	@echo "$(GREEN)✓ Windows: $(BUILD_DIR)/$(APP_NAME)-windows.exe$(NC)"
+# Archive de distribution identique à la release GitHub (exe + infos.txt).
+package:
+	powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 -Package
 
-build-mac:
-	@echo "$(YELLOW)Compilation pour macOS...$(NC)"
-	@mkdir -p $(BUILD_DIR)
-	GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/$(APP_NAME)-mac $(CMD_DIR)/main.go
-	@echo "$(GREEN)✓ macOS: $(BUILD_DIR)/$(APP_NAME)-mac$(NC)"
+# Captures d'écran du README, avec des données fictives (Edge sans fenêtre).
+captures:
+	powershell -NoProfile -ExecutionPolicy Bypass -File docs/captures/capture.ps1
 
-build-mac-arm:
-	@echo "$(YELLOW)Compilation pour macOS (Apple Silicon)...$(NC)"
-	@mkdir -p $(BUILD_DIR)
-	GOOS=darwin GOARCH=arm64 go build -o $(BUILD_DIR)/$(APP_NAME)-mac-arm64 $(CMD_DIR)/main.go
-	@echo "$(GREEN)✓ macOS ARM: $(BUILD_DIR)/$(APP_NAME)-mac-arm64$(NC)"
-
-build-linux:
-	@echo "$(YELLOW)Compilation pour Linux...$(NC)"
-	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/$(APP_NAME)-linux $(CMD_DIR)/main.go
-	@echo "$(GREEN)✓ Linux: $(BUILD_DIR)/$(APP_NAME)-linux$(NC)"
-
-build-all: build-windows build-mac build-mac-arm build-linux
-	@echo "$(GREEN)✓ Toutes les versions compilées dans $(BUILD_DIR)/$(NC)"
-	@ls -lh $(BUILD_DIR)/
-
-clean:
-	@echo "$(YELLOW)Nettoyage...$(NC)"
-	rm -rf $(BUILD_DIR)
-	go clean -cache
-	@echo "$(GREEN)✓ Nettoyage terminé$(NC)"
+# Génère frontend/src/lib/wailsjs via `go run` : l'exécutable temporaire de
+# Wails (wailsbindings.exe) peut être bloqué par Smart App Control.
+bindings:
+	go run -tags bindings . > /dev/null
 
 test:
-	@echo "$(YELLOW)Lancement des tests...$(NC)"
 	go test ./...
-	@echo "$(GREEN)✓ Tests terminés$(NC)"
 
-# Commandes de développement
-dev: install-deps run
+check:
+	cd frontend && npx svelte-check --tsconfig ./tsconfig.json
 
-# Vérification du code
 lint:
-	@echo "$(YELLOW)Vérification du code...$(NC)"
-	go fmt ./...
+	gofmt -l main.go main_bindings.go internal
 	go vet ./...
-	@echo "$(GREEN)✓ Vérification terminée$(NC)"
+	go run golang.org/x/tools/cmd/deadcode@v0.47.0 -test ./...
 
-# Mise à jour des dépendances
-update-deps:
-	@echo "$(YELLOW)Mise à jour des dépendances...$(NC)"
-	go get -u ./...
-	go mod tidy
-	@echo "$(GREEN)✓ Dépendances mises à jour$(NC)"
+# Ne supprime que les fichiers compilés : build/bin peut contenir une base de test.
+clean:
+	rm -rf build/bin/clefs.exe build/release frontend/dist
+	go clean -cache
