@@ -47,7 +47,7 @@ bindings:
 	go run -tags bindings . > /dev/null
 
 test:
-	go test ./...
+	go test ./internal/...
 
 check:
 	cd frontend && npx svelte-check --tsconfig ./tsconfig.json

@@ -26,6 +26,9 @@ $version = (Select-String -Path 'internal\app\app.go' -Pattern '^const Version =
 Write-Host "Gestionnaire de Clés $version" -ForegroundColor Cyan
 
 Write-Host '1/3 Liaisons JavaScript des services Go' -ForegroundColor Cyan
+# main.go intègre frontend/dist : sur un dépôt fraîchement cloné, un fichier
+# vide permet de compiler le paquet principal avant la construction de l'interface.
+if (-not (Test-Path 'frontend\dist')) { New-Item -ItemType File -Force 'frontend\dist\.gitkeep' | Out-Null }
 # Via `go run` : l'exécutable temporaire de Wails (wailsbindings.exe) peut être
 # bloqué par Smart App Control.
 go run -tags bindings . | Out-Null
@@ -38,7 +41,7 @@ if ($LASTEXITCODE -ne 0) {
 
 if ($Test) {
     Write-Host '   Tests Go' -ForegroundColor Cyan
-    go test ./...
+    go test ./internal/...
     if ($LASTEXITCODE -ne 0) { throw 'Tests Go en échec' }
     Push-Location frontend
     if (-not (Test-Path node_modules)) { npm install }

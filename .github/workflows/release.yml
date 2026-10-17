@@ -34,8 +34,17 @@ jobs:
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
 
+      # main.go intègre frontend/dist (//go:embed) : un fichier vide permet de
+      # compiler le paquet principal (génération des liaisons) avant que
+      # l'interface ne soit construite par wails build.
+      - name: Prepare frontend/dist
+        shell: pwsh
+        run: New-Item -ItemType File -Force frontend/dist/.gitkeep | Out-Null
+
+      # Tests du moteur : le paquet principal intègre frontend/dist, qui
+      # n'existe qu'après la compilation de l'interface (étape Build).
       - name: Run Go tests
-        run: go test ./...
+        run: go test ./internal/...
 
       # -webview2 error : si WebView2 manque sur un poste, l'application
       # affiche un message clair au lieu de proposer une installation.
